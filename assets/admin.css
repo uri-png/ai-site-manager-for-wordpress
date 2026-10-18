@@ -1,0 +1,13 @@
+.wpmcp .wpmcp-version { font-size: 13px; color: #787c82; font-weight: 400; }
+.wpmcp .wpmcp-endpoint { margin: 12px 0; }
+.wpmcp .wpmcp-endpoint code { background: #f0f0f1; padding: 3px 6px; }
+.wpmcp .wpmcp-new-key code { font-size: 14px; user-select: all; }
+.wpmcp .wpmcp-destructive { color: #b32d2e; font-weight: 600; }
+.wpmcp .wpmcp-revoked td { color: #a7aaad; text-decoration: line-through; }
+.wpmcp .wpmcp-count { color: #787c82; font-weight: 400; }
+.wpmcp .wpmcp-args { display: inline-block; max-width: 420px; overflow-wrap: anywhere; font-size: 11px; }
+.wpmcp .wpmcp-status { padding: 2px 8px; border-radius: 3px; font-size: 11px; }
+.wpmcp .wpmcp-status-success { background: #d1e7dd; }
+.wpmcp .wpmcp-status-failed { background: #f8d7da; }
+.wpmcp .wpmcp-status-pending { background: #fff3cd; }
+.wpmcp .wpmcp-log-filters { margin: 12px 0; }

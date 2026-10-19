@@ -103,3 +103,4 @@ final class MCP_DB {
 		return $map[ $table ] ?? '';
 	}
 }
+

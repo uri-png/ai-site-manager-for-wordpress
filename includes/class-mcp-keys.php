@@ -148,3 +148,4 @@ final class MCP_Keys {
 		return hash_hmac( 'sha256', $token, wp_salt( 'auth' ) );
 	}
 }
+

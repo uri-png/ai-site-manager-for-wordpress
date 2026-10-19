@@ -26,3 +26,4 @@ delete_option( 'wpmcp_version' );
 delete_option( 'wpmcp_enabled' );
 delete_option( 'wpmcp_require_approval' );
 delete_option( 'wpmcp_tool_overrides' );
+

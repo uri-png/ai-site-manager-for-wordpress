@@ -146,3 +146,4 @@ final class MCP_Logger {
 		return $clean;
 	}
 }
+

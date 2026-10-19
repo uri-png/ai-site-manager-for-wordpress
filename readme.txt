@@ -4,7 +4,7 @@ Tags: mcp, ai, json-rpc, api, automation
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 8.0
-Stable tag: 1.1.11
+Stable tag: 1.2.0
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -29,6 +29,12 @@ AI Site Manager turns a WordPress site into an MCP (Model Context Protocol) serv
 3. Connect your MCP client to https://yoursite/wp-json/wp-mcp/v1/mcp - either with an Authorization: Bearer <key> header or via the built-in OAuth flow.
 
 == Changelog ==
+
+= 1.2.0 =
+* New: Elementor bridge (Elementor 4.2+, Atomic Editor). Elementor's own MCP abilities (WordPress Abilities API, category "elementor") are exposed as tools named elementor_* through this plugin's endpoint, with OAuth/API-key auth, per-tool ON/OFF, the approval queue and the audit log. Write abilities are OFF by default and queued for approval.
+* New: elementor_status (diagnoses missing Elementor version, Atomic Editor, MCP exposure, Abilities API, MCP Adapter plugin), elementor_backups_list and elementor_backup_restore. Before every Elementor write the page's _elementor_data is backed up (last 5 kept) and can be restored.
+* Changed: tools may declare a pass-through validation schema (additionalProperties true) when the target validates input itself.
+* Requires for the Elementor tools: WordPress 6.9+ (Abilities API), the WordPress MCP Adapter plugin, and "MCP" turned on in Elementor > Elementor MCP. Other tools are unaffected.
 
 = 1.1.11 =
 * New: media_upload tool - upload images sent directly as base64 (no URL needed). JPEG/PNG/GIF/WebP only, detected from file content, 5 MB max after decoding; optional alt text, attach-to-post and set-as-featured in one call.
@@ -91,3 +97,4 @@ AI Site Manager turns a WordPress site into an MCP (Model Context Protocol) serv
 
 = 1.0.0 =
 * Initial release: stateless MCP endpoint, dynamic tools (core + CPT + WooCommerce), scoped API keys, approvals, audit log.
+

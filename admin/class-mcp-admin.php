@@ -437,3 +437,4 @@ final class MCP_Admin {
 		echo '</form>';
 	}
 }
+

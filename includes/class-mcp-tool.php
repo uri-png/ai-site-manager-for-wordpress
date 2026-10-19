@@ -30,6 +30,14 @@ final class MCP_Tool {
 	public Closure $cap_check;
 
 	/**
+	 * Optional lighter schema used by the executor for validation (the MCP
+	 * listing still shows input_schema). Null means validate against input_schema.
+	 *
+	 * @var array<string,mixed>|null
+	 */
+	public ?array $exec_schema = null;
+
+	/**
 	 * @param string                $name          Machine name: [a-z0-9_], max 64 chars (MCP-safe).
 	 * @param string                $title         Human title.
 	 * @param string                $description   What the tool does; shown to the AI agent.
@@ -81,3 +89,4 @@ final class MCP_Tool {
 		);
 	}
 }
+

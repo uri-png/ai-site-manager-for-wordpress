@@ -40,6 +40,11 @@ final class MCP_Tools_Core {
 				$tools[ $name ] = $tool;
 			}
 		}
+		if ( class_exists( 'MCP_Tools_Elementor' ) && ( defined( 'ELEMENTOR_VERSION' ) || MCP_Tools_Elementor::abilities_api_available() ) ) {
+			foreach ( MCP_Tools_Elementor::discover() as $name => $tool ) {
+				$tools[ $name ] = $tool;
+			}
+		}
 		$tools['site_info'] = self::site_info_tool();
 		foreach ( self::term_tools() as $name => $tool ) {
 			$tools[ $name ] = $tool;
@@ -1027,3 +1032,4 @@ final class MCP_Tools_Core {
 		return max( 1, (int) ( $args['page'] ?? 1 ) );
 	}
 }
+

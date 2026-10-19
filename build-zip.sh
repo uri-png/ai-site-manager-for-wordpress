@@ -24,3 +24,4 @@ rm -f "$OUT"
 ( cd "$STAGE" && zip -qr "$OLDPWD/$OUT" ai-site-manager )
 
 echo "Built $OUT"
+

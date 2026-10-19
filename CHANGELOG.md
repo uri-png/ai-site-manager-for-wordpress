@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.0
+
+- New: Elementor bridge (Elementor 4.2+, Atomic Editor). Elementor's own MCP abilities (WordPress Abilities API, category "elementor") are exposed as tools named elementor_* through this plugin's endpoint, with OAuth/API-key auth, per-tool ON/OFF, the approval queue and the audit log. Write abilities are OFF by default and queued for approval.
+- New: elementor_status (diagnoses missing Elementor version, Atomic Editor, MCP exposure, Abilities API, MCP Adapter plugin), elementor_backups_list and elementor_backup_restore. Before every Elementor write the page's _elementor_data is backed up (last 5 kept) and can be restored.
+- Changed: tools may declare a pass-through validation schema (additionalProperties true) when the target validates input itself.
+- Requires for the Elementor tools: WordPress 6.9+ (Abilities API), the WordPress MCP Adapter plugin, and "MCP" turned on in Elementor > Elementor MCP. Other tools are unaffected.
+
 ## 1.1.11
 
 - New: media_upload tool - upload images sent directly as base64 (no URL needed). JPEG/PNG/GIF/WebP only, detected from file content, 5 MB max after decoding; optional alt text, attach-to-post and set-as-featured in one call.
@@ -69,3 +76,4 @@
 ## 1.0.0
 
 - Initial release: stateless MCP endpoint, dynamic tools (core + CPT + WooCommerce), scoped API keys, approvals, audit log.
+

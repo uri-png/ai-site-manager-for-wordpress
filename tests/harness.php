@@ -12,7 +12,7 @@ error_reporting( E_ALL & ~E_DEPRECATED );
 
 define( 'ABSPATH', '/tmp/fake-wp/' );
 define( 'MB_IN_BYTES', 1048576 );
-define( 'WPMCP_VERSION', '1.1.11' );
+define( 'WPMCP_VERSION', '1.2.0' );
 define( 'WPSEO_VERSION', 'test' );
 define( 'WPMCP_TESTING', true );
 class WpmcpTestExit extends Exception {}
@@ -26,7 +26,7 @@ $GLOBALS['users']      = array(
 	2 => (object) array( 'ID' => 2, 'user_login' => 'editor', 'display_name' => 'Ed', 'user_email' => 'e@b.c', 'user_registered' => '2020-01-01 00:00:00', 'roles' => array( 'editor' ) ),
 );
 $GLOBALS['caps']       = array( // user_id => cap => bool
-	1 => array( 'read' => true, 'edit_posts' => true, 'publish_posts' => true, 'list_users' => true, 'upload_files' => true, 'manage_options' => true, 'manage_categories' => true ),
+	1 => array( 'read' => true, 'edit_post' => true, 'edit_posts' => true, 'publish_posts' => true, 'list_users' => true, 'upload_files' => true, 'manage_options' => true, 'manage_categories' => true ),
 	2 => array( 'read' => true, 'edit_posts' => true, 'publish_posts' => false, 'list_users' => false, 'upload_files' => true ),
 );
 $GLOBALS['current_uid'] = 0;
@@ -354,6 +354,28 @@ function dbDelta( $sql ) {
 	return true;
 }
 
+
+/* ---------------- Elementor / Abilities API mock (inactive unless $GLOBALS['mock_abilities'] is set) ---------------- */
+if ( ! function_exists( 'wp_slash' ) ) { function wp_slash( $v ) { return is_string( $v ) ? addslashes( $v ) : $v; } }
+class MockAbility {
+	public $calls = array();
+	public function __construct( public string $name, public bool $ro, public array $schema, public $result, public bool $allowed = true ) {}
+	public function get_name() { return $this->name; }
+	public function get_label() { return 'Label ' . $this->name; }
+	public function get_description() { return 'Desc ' . $this->name; }
+	public function get_meta() { return array( 'annotations' => array( 'readonly' => $this->ro ) ); }
+	public function get_input_schema() { return $this->schema; }
+	public function check_permissions( $input = null ) { return $this->allowed; }
+	public function execute( $input = null ) {
+		$this->calls[] = $input;
+		if ( $this->result instanceof WP_Error ) { return $this->result; }
+		if ( ! $this->ro && ! empty( $input['post_id'] ) ) { $GLOBALS['meta'][ $input['post_id'] ]['_elementor_data'] = array( '[{"id":"changed"}]' ); }
+		return $this->result;
+	}
+}
+function wp_get_abilities() { return $GLOBALS['mock_abilities'] ?? array(); }
+function wp_get_ability( $id ) { return $GLOBALS['mock_abilities'][ $id ] ?? null; }
+
 /* ---------------- load plugin ---------------- */
 require WPMCP_PLUGIN_DIR . 'includes/class-mcp-db.php';
 require WPMCP_PLUGIN_DIR . 'includes/class-mcp-logger.php';
@@ -362,6 +384,7 @@ require WPMCP_PLUGIN_DIR . 'includes/class-mcp-tool.php';
 require WPMCP_PLUGIN_DIR . 'includes/class-mcp-registry.php';
 require WPMCP_PLUGIN_DIR . 'includes/class-mcp-tools-core.php';
 require WPMCP_PLUGIN_DIR . 'includes/class-mcp-tools-yoast.php';
+require WPMCP_PLUGIN_DIR . 'includes/class-mcp-tools-elementor.php';
 require WPMCP_PLUGIN_DIR . 'includes/class-mcp-executor.php';
 require WPMCP_PLUGIN_DIR . 'includes/class-mcp-mcp.php';
 require WPMCP_PLUGIN_DIR . 'includes/class-mcp-rest-server.php';
@@ -852,5 +875,63 @@ check( 'yoast_meta_set: empty update rejected', str_contains( (string) ( $r['err
 $r = MCP_Executor::execute( 'yoast_meta_get', array( 'id' => 99999 ), $api_key );
 check( 'yoast_meta_get: missing post errors', str_contains( (string) ( $r['error'] ?? '' ), 'not found' ) );
 
+
+// --- Elementor bridge ---
+$el_post = wp_insert_post( array( 'post_title' => 'el page', 'post_status' => 'publish', 'post_type' => 'page' ) );
+update_post_meta( $el_post, '_elementor_data', '[{"id":"orig"}]' );
+$ab_read  = new MockAbility( 'elementor/get-page-structure', true, array( 'type' => 'object', 'required' => array( 'post_id' ), 'properties' => array( 'post_id' => array( 'type' => 'integer' ) ) ), array( 'tree' => array() ) );
+$ab_write = new MockAbility( 'elementor/manage-elements', false, array( 'type' => 'object', 'required' => array( 'post_id', 'operations' ), 'properties' => array( 'post_id' => array( 'type' => 'integer' ), 'operations' => array( 'type' => 'array', 'oneOf' => array() ) ) ), array( 'status' => 'ok' ) );
+$ab_deny  = new MockAbility( 'elementor/clear-cache', false, array(), array( 'cleared' => true ), false );
+$ab_other = new MockAbility( 'woocommerce/do-thing', true, array(), array() );
+$GLOBALS['mock_abilities'] = array( $ab_read->name => $ab_read, $ab_write->name => $ab_write, $ab_deny->name => $ab_deny, $ab_other->name => $ab_other );
+$rp = new ReflectionProperty( 'MCP_Registry', 'tools' ); $rp->setAccessible( true ); $rp->setValue( null, null );
+
+check( 'elementor: bridged tool names', null !== MCP_Registry::get( 'elementor_get_page_structure' ) && null !== MCP_Registry::get( 'elementor_manage_elements' ) );
+check( 'elementor: non-elementor ability not bridged', null === MCP_Registry::get( 'ability_woocommerce_do_thing' ) && null === MCP_Registry::get( 'woocommerce_do_thing' ) );
+check( 'elementor: read tool is non-destructive and enabled', ! MCP_Registry::get( 'elementor_get_page_structure' )->destructive && MCP_Registry::is_enabled( 'elementor_get_page_structure' ) );
+check( 'elementor: write tool is destructive and off by default', MCP_Registry::get( 'elementor_manage_elements' )->destructive && ! MCP_Registry::is_enabled( 'elementor_manage_elements' ) );
+check( 'elementor: real schema shown to clients', isset( MCP_Registry::get( 'elementor_manage_elements' )->to_mcp_schema()['inputSchema']['properties']['operations'] ) );
+
+$r = MCP_Executor::execute( 'elementor_status', array(), $api_key );
+check( 'elementor_status: reports problems when Elementor missing', ! empty( $r['ok'] ) && 2 <= count( $r['data']['problems'] ) && 3 === $r['data']['bridged_abilities'] );
+
+$r = MCP_Executor::execute( 'elementor_get_page_structure', array( 'post_id' => $el_post ), $api_key );
+check( 'elementor read: runs ability, no backup', ! empty( $r['ok'] ) && ! isset( $r['data']['_backup_id'] ) && 1 === count( $ab_read->calls ) );
+
+$r = MCP_Executor::execute( 'elementor_manage_elements', array( 'post_id' => $el_post, 'operations' => array() ), $api_key );
+check( 'elementor write: blocked while tool is off', empty( $r['ok'] ) && 0 === count( $ab_write->calls ) );
+MCP_Registry::set_enabled( 'elementor_manage_elements', true );
+update_option( 'wpmcp_require_approval', 1 );
+$r = MCP_Executor::execute( 'elementor_manage_elements', array( 'post_id' => $el_post, 'operations' => array() ), $api_key );
+check( 'elementor write: queued for approval, not executed', ! empty( $r['pending_approval'] ) && 0 === count( $ab_write->calls ) );
+$qid = $r['pending_approval'];
+$ap = MCP_Executor::approve( (int) $qid, 1 );
+check( 'elementor write: runs after approval', ! empty( $ap['ok'] ) && 1 === count( $ab_write->calls ) );
+check( 'elementor write: backup taken before write', is_array( get_post_meta( $el_post, '_asm_elementor_backups', true ) ) && 1 === count( get_post_meta( $el_post, '_asm_elementor_backups', true ) ) );
+
+$r = MCP_Executor::execute( 'elementor_backups_list', array( 'post_id' => $el_post ), $api_key );
+$bid = $r['data']['backups'][0]['backup_id'] ?? '';
+check( 'elementor_backups_list: lists backup', ! empty( $r['ok'] ) && '' !== $bid );
+check( 'elementor: data was changed by write', str_contains( (string) get_post_meta( $el_post, '_elementor_data', true ), 'changed' ) );
+MCP_Registry::set_enabled( 'elementor_backup_restore', true );
+$r = MCP_Executor::execute( 'elementor_backup_restore', array( 'post_id' => $el_post, 'backup_id' => $bid ), $api_key );
+check( 'elementor_backup_restore: queued', ! empty( $r['pending_approval'] ) );
+MCP_Executor::approve( (int) $r['pending_approval'], 1 );
+check( 'elementor_backup_restore: original data back', str_contains( (string) get_post_meta( $el_post, '_elementor_data', true ), 'orig' ) );
+$r = MCP_Executor::execute( 'elementor_backup_restore', array( 'post_id' => $el_post, 'backup_id' => 'nope' ), $api_key );
+MCP_Executor::approve( (int) ( $r['pending_approval'] ?? 0 ), 1 );
+check( 'elementor_backup_restore: unknown backup id does not change data', str_contains( (string) get_post_meta( $el_post, '_elementor_data', true ), 'orig' ) );
+
+MCP_Registry::set_enabled( 'elementor_clear_cache', true );
+$r = MCP_Executor::execute( 'elementor_clear_cache', array(), $api_key );
+check( 'elementor: ability permission denial blocks tool', empty( $r['ok'] ) && empty( $r['pending_approval'] ) && 0 === count( $ab_deny->calls ) );
+
+$ab_err = new MockAbility( 'elementor/create-page', true, array(), new WP_Error( 'bad', 'Bad input from Elementor' ) );
+$GLOBALS['mock_abilities'][ $ab_err->name ] = $ab_err; $rp->setValue( null, null );
+$r = MCP_Executor::execute( 'elementor_create_page', array(), $api_key );
+check( 'elementor: WP_Error from ability becomes tool error', empty( $r['ok'] ) && str_contains( (string) ( $r['error'] ?? '' ), 'Bad input from Elementor' ) );
+unset( $GLOBALS['mock_abilities'] ); $rp->setValue( null, null );
+
 echo $failures ? "\n{$failures} FAILURES\n" : "\nALL TESTS PASSED\n";
 exit( $failures ? 1 : 0 );
+

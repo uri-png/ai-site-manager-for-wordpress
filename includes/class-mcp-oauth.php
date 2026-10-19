@@ -698,3 +698,4 @@ final class MCP_OAuth {
 		return $response;
 	}
 }
+

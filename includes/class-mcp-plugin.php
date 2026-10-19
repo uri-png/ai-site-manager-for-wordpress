@@ -73,3 +73,4 @@ final class MCP_Plugin {
 		wp_clear_scheduled_hook( 'wpmcp_daily_cleanup' );
 	}
 }
+

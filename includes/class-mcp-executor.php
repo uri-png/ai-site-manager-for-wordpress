@@ -48,7 +48,7 @@ final class MCP_Executor {
 			return array( 'ok' => false, 'error' => "Tool is disabled by the site administrator: {$name}" );
 		}
 
-		$valid = self::validate( $tool->input_schema, $arguments );
+		$valid = self::validate( $tool->exec_schema ?? $tool->input_schema, $arguments );
 		if ( is_wp_error( $valid ) ) {
 			MCP_Logger::log( $log_base + array( 'status' => MCP_Logger::STATUS_FAILED, 'message' => 'Validation: ' . $valid->get_error_message() ) );
 			return array( 'ok' => false, 'error' => 'Invalid arguments: ' . $valid->get_error_message() );
@@ -272,6 +272,9 @@ final class MCP_Executor {
 		}
 
 		foreach ( $args as $key => $value ) {
+			if ( ( ! isset( $props[ $key ] ) || ! is_array( $props[ $key ] ) ) && true === ( $schema['additionalProperties'] ?? false ) ) {
+				continue; // Pass-through schema: the target (e.g. a WordPress ability) validates the input itself.
+			}
 			if ( ! isset( $props[ $key ] ) || ! is_array( $props[ $key ] ) ) {
 				return new WP_Error( 'wpmcp_unknown_arg', sprintf( 'Unknown argument: %s', $key ) );
 			}
@@ -352,3 +355,4 @@ final class MCP_Executor {
 		return strlen( $json ) > 2000 ? substr( $json, 0, 2000 ) . '…[truncated]' : $json;
 	}
 }
+

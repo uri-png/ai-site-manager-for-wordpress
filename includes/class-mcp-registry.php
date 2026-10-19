@@ -112,3 +112,4 @@ final class MCP_Registry {
 		return is_array( $saved ) ? $saved : array();
 	}
 }
+

@@ -167,6 +167,8 @@ final class MCP_Admin {
 			case 'save_settings':
 				update_option( 'wpmcp_enabled', ! empty( $_POST['wpmcp_enabled'] ) ? 1 : 0, false );
 				update_option( 'wpmcp_require_approval', ! empty( $_POST['wpmcp_require_approval'] ) ? 1 : 0, false );
+				$ns = isset( $_POST['wpmcp_ability_namespaces'] ) ? sanitize_textarea_field( wp_unslash( (string) $_POST['wpmcp_ability_namespaces'] ) ) : '*';
+				update_option( 'wpmcp_ability_namespaces', '' === trim( $ns ) ? '*' : $ns, false );
 				self::redirect( array( 'tab' => 'settings', 'wpmcp_notice' => 'saved' ) );
 				break;
 		}
@@ -432,9 +434,11 @@ final class MCP_Admin {
 		echo '<table class="form-table">';
 		echo '<tr><th scope="row">' . esc_html__( 'MCP server enabled', 'ai-site-manager' ) . '</th><td><label><input type="checkbox" name="wpmcp_enabled" value="1" ' . checked( 1, (int) get_option( 'wpmcp_enabled', 1 ), false ) . ' /> ' . esc_html__( 'Accept API requests', 'ai-site-manager' ) . '</label></td></tr>';
 		echo '<tr><th scope="row">' . esc_html__( 'Human-in-the-loop', 'ai-site-manager' ) . '</th><td><label><input type="checkbox" name="wpmcp_require_approval" value="1" ' . checked( 1, (int) get_option( 'wpmcp_require_approval', 1 ), false ) . ' /> ' . esc_html__( 'Queue destructive tools for admin approval instead of executing immediately', 'ai-site-manager' ) . '</label></td></tr>';
+		echo '<tr><th scope="row">' . esc_html__( 'Bridged ability namespaces', 'ai-site-manager' ) . '</th><td><input type="text" class="regular-text" name="wpmcp_ability_namespaces" value="' . esc_attr( (string) get_option( 'wpmcp_ability_namespaces', '*' ) ) . '" /><p class="description">' . esc_html__( 'WordPress Abilities API abilities exposed as tools. Use * for all, or a comma-separated list of namespaces such as elementor, focusweb-ai-visibility. Read-only abilities are on by default; all others are off until enabled in Tools and need approval.', 'ai-site-manager' ) . '</p></td></tr>';
 		echo '</table>';
 		submit_button();
 		echo '</form>';
 	}
 }
+
 

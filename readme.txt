@@ -4,7 +4,7 @@ Tags: mcp, ai, json-rpc, api, automation
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 8.0
-Stable tag: 1.2.0
+Stable tag: 1.2.1
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -29,6 +29,12 @@ AI Site Manager turns a WordPress site into an MCP (Model Context Protocol) serv
 3. Connect your MCP client to https://yoursite/wp-json/wp-mcp/v1/mcp - either with an Authorization: Bearer <key> header or via the built-in OAuth flow.
 
 == Changelog ==
+
+= 1.2.1 =
+* New: Settings > "Bridged ability namespaces" (default * = every WordPress Abilities API namespace, or a comma-separated list such as elementor, focusweb-ai-visibility). Abilities from any plugin now become tools named ability_<namespace>_<name> (elementor_* for Elementor). Read-only abilities (meta.annotations.readonly) are on; all others stay off and approval-gated.
+* New: meta tools abilities_list (discover all registered abilities and schemas), ability_read (run any read-only ability) and ability_execute (run any ability; off by default, approval-gated). They find abilities registered after the client connected, without a tools/list refresh.
+* Changed: elementor_status now also lists every registered ability and the bridged namespaces.
+* Fixed: very long ability ids get a unique 64-character tool name.
 
 = 1.2.0 =
 * New: Elementor bridge (Elementor 4.2+, Atomic Editor). Elementor's own MCP abilities (WordPress Abilities API, category "elementor") are exposed as tools named elementor_* through this plugin's endpoint, with OAuth/API-key auth, per-tool ON/OFF, the approval queue and the audit log. Write abilities are OFF by default and queued for approval.
@@ -97,4 +103,5 @@ AI Site Manager turns a WordPress site into an MCP (Model Context Protocol) serv
 
 = 1.0.0 =
 * Initial release: stateless MCP endpoint, dynamic tools (core + CPT + WooCommerce), scoped API keys, approvals, audit log.
+
 

@@ -107,3 +107,4 @@ php tests/harness.php   # 136 tests, no WordPress needed (stubbed core)
 
 GPL-2.0-or-later. Copyright (C) 2026 FocusWeb Ltd. See [LICENSE](LICENSE).
 
+

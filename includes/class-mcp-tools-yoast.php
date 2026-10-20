@@ -144,3 +144,4 @@ class MCP_Tools_Yoast {
 	}
 }
 
+

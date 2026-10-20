@@ -12,7 +12,7 @@ error_reporting( E_ALL & ~E_DEPRECATED );
 
 define( 'ABSPATH', '/tmp/fake-wp/' );
 define( 'MB_IN_BYTES', 1048576 );
-define( 'WPMCP_VERSION', '1.2.0' );
+define( 'WPMCP_VERSION', '1.2.1' );
 define( 'WPSEO_VERSION', 'test' );
 define( 'WPMCP_TESTING', true );
 class WpmcpTestExit extends Exception {}
@@ -644,7 +644,7 @@ $tok2 = $r->get_data();
 check( 'refresh rotates to a new pair', str_starts_with( (string) ( $tok2['access_token'] ?? '' ), 'mcpat_' ) );
 check( 'old refresh token is revoked after rotation', 'invalid_grant' === ( MCP_OAuth::handle_token( $mk2( $tok['refresh_token'] ) )->get_data()['error'] ?? '' ) );
 
-// ---- v1.2.0: hardening (throttle, revoke, cleanup, client admin) ----
+// ---- v1.2.1: hardening (throttle, revoke, cleanup, client admin) ----
 $GLOBALS['transients'] = array();
 
 // Throttle: register limited to 10/hour per IP.
@@ -885,6 +885,7 @@ $ab_deny  = new MockAbility( 'elementor/clear-cache', false, array(), array( 'cl
 $ab_other = new MockAbility( 'woocommerce/do-thing', true, array(), array() );
 $GLOBALS['mock_abilities'] = array( $ab_read->name => $ab_read, $ab_write->name => $ab_write, $ab_deny->name => $ab_deny, $ab_other->name => $ab_other );
 $rp = new ReflectionProperty( 'MCP_Registry', 'tools' ); $rp->setAccessible( true ); $rp->setValue( null, null );
+update_option( 'wpmcp_ability_namespaces', 'elementor' );
 
 check( 'elementor: bridged tool names', null !== MCP_Registry::get( 'elementor_get_page_structure' ) && null !== MCP_Registry::get( 'elementor_manage_elements' ) );
 check( 'elementor: non-elementor ability not bridged', null === MCP_Registry::get( 'ability_woocommerce_do_thing' ) && null === MCP_Registry::get( 'woocommerce_do_thing' ) );
@@ -932,6 +933,43 @@ $r = MCP_Executor::execute( 'elementor_create_page', array(), $api_key );
 check( 'elementor: WP_Error from ability becomes tool error', empty( $r['ok'] ) && str_contains( (string) ( $r['error'] ?? '' ), 'Bad input from Elementor' ) );
 unset( $GLOBALS['mock_abilities'] ); $rp->setValue( null, null );
 
+// --- v1.2.1: namespaces setting + meta tools ---
+$GLOBALS['mock_abilities'] = array( $ab_read->name => $ab_read, $ab_write->name => $ab_write, $ab_other->name => $ab_other );
+$ab_fw = new MockAbility( 'focusweb-ai-visibility/search-content', true, array( 'type' => 'object', 'properties' => array( 'q' => array( 'type' => 'string' ) ), 'required' => array( 'q' ) ), array( 'count' => 1 ) );
+$ab_fw_w = new MockAbility( 'acme/change-thing', false, array(), array( 'done' => true ) );
+$GLOBALS['mock_abilities'][ $ab_fw->name ] = $ab_fw; $GLOBALS['mock_abilities'][ $ab_fw_w->name ] = $ab_fw_w;
+update_option( 'wpmcp_ability_namespaces', 'elementor' ); $rp->setValue( null, null );
+check( 'ns list: other namespace not bridged', null === MCP_Registry::get( 'ability_focusweb_ai_visibility_search_content' ) );
+update_option( 'wpmcp_ability_namespaces', 'elementor, focusweb-ai-visibility' ); $rp->setValue( null, null );
+check( 'ns list: listed namespace bridged', null !== MCP_Registry::get( 'ability_focusweb_ai_visibility_search_content' ) && null === MCP_Registry::get( 'ability_acme_change_thing' ) );
+update_option( 'wpmcp_ability_namespaces', '*' ); $rp->setValue( null, null );
+check( 'ns *: every namespace bridged', null !== MCP_Registry::get( 'ability_acme_change_thing' ) && null !== MCP_Registry::get( 'ability_woocommerce_do_thing' ) );
+check( 'ns *: read-only ability on, write ability off', MCP_Registry::is_enabled( 'ability_focusweb_ai_visibility_search_content' ) && ! MCP_Registry::is_enabled( 'ability_acme_change_thing' ) );
+delete_option( 'wpmcp_ability_namespaces' ); $rp->setValue( null, null );
+check( 'ns default is * when option unset', null !== MCP_Registry::get( 'ability_acme_change_thing' ) );
+
+$r = MCP_Executor::execute( 'abilities_list', array( 'namespace' => 'acme' ), $api_key );
+check( 'abilities_list: filters namespace', ! empty( $r['ok'] ) && 1 === $r['data']['count'] && false === $r['data']['abilities'][0]['read_only'] );
+$r = MCP_Executor::execute( 'abilities_list', array(), $api_key );
+check( 'abilities_list: lists all', ! empty( $r['ok'] ) && 5 === $r['data']['count'] );
+$r = MCP_Executor::execute( 'ability_read', array( 'id' => 'focusweb-ai-visibility/search-content', 'input' => array( 'q' => 'x' ) ), $api_key );
+check( 'ability_read: runs read-only ability', ! empty( $r['ok'] ) && 1 === $r['data']['count'] );
+$r = MCP_Executor::execute( 'ability_read', array( 'id' => 'acme/change-thing' ), $api_key );
+check( 'ability_read: refuses non-read-only ability', empty( $r['ok'] ) && 0 === count( $ab_fw_w->calls ) );
+$r = MCP_Executor::execute( 'ability_read', array( 'id' => 'nope/none' ), $api_key );
+check( 'ability_read: unknown id errors', empty( $r['ok'] ) && str_contains( (string) $r['error'], 'Unknown ability' ) );
+$r = MCP_Executor::execute( 'ability_execute', array( 'id' => 'acme/change-thing' ), $api_key );
+check( 'ability_execute: off by default', empty( $r['ok'] ) && 0 === count( $ab_fw_w->calls ) );
+MCP_Registry::set_enabled( 'ability_execute', true );
+$r = MCP_Executor::execute( 'ability_execute', array( 'id' => 'acme/change-thing' ), $api_key );
+check( 'ability_execute: queued for approval', ! empty( $r['pending_approval'] ) && 0 === count( $ab_fw_w->calls ) );
+$ap = MCP_Executor::approve( (int) $r['pending_approval'], 1 );
+check( 'ability_execute: runs after approval', ! empty( $ap['ok'] ) && 1 === count( $ab_fw_w->calls ) );
+$r = MCP_Executor::execute( 'elementor_status', array(), $api_key );
+check( 'elementor_status: lists all registered abilities', ! empty( $r['ok'] ) && 5 === count( $r['data']['all_registered_abilities'] ) && array( '*' ) === $r['data']['bridged_namespaces'] );
+$GLOBALS['mock_abilities'] = array(); $rp->setValue( null, null );
+
 echo $failures ? "\n{$failures} FAILURES\n" : "\nALL TESTS PASSED\n";
 exit( $failures ? 1 : 0 );
+
 

@@ -38,8 +38,35 @@ class MCP_Tools_Elementor {
 	 * @return string[]
 	 */
 	public static function prefixes(): array {
-		$prefixes = apply_filters( 'wpmcp_ability_prefixes', array( 'elementor/' ) );
-		return is_array( $prefixes ) ? array_values( array_filter( array_map( 'strval', $prefixes ) ) ) : array( 'elementor/' );
+		$raw  = trim( (string) get_option( 'wpmcp_ability_namespaces', '*' ) );
+		$list = array( '*' );
+		if ( '' !== $raw && '*' !== $raw ) {
+			$list = array();
+			foreach ( preg_split( '/[\s,]+/', $raw ) as $item ) {
+				$item = trim( $item );
+				if ( '' === $item ) {
+					continue;
+				}
+				$list[] = '*' === $item ? '*' : rtrim( $item, '/' ) . '/';
+			}
+			if ( ! $list ) {
+				$list = array( '*' );
+			}
+		}
+		$prefixes = apply_filters( 'wpmcp_ability_prefixes', $list );
+		return is_array( $prefixes ) ? array_values( array_filter( array_map( 'strval', $prefixes ) ) ) : $list;
+	}
+
+	/**
+	 * Whether an ability id belongs to a bridged namespace.
+	 */
+	public static function is_bridged( string $id ): bool {
+		foreach ( self::prefixes() as $prefix ) {
+			if ( '*' === $prefix || str_starts_with( $id, $prefix ) ) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -57,11 +84,27 @@ class MCP_Tools_Elementor {
 				continue;
 			}
 			$id = (string) $ability->get_name();
-			foreach ( self::prefixes() as $prefix ) {
-				if ( str_starts_with( $id, $prefix ) ) {
-					$out[ $id ] = $ability;
-					break;
-				}
+			if ( self::is_bridged( $id ) ) {
+				$out[ $id ] = $ability;
+			}
+		}
+		ksort( $out );
+		return $out;
+	}
+
+	/**
+	 * Every registered ability regardless of namespace filter.
+	 *
+	 * @return array<string,object>
+	 */
+	public static function all_abilities(): array {
+		$out = array();
+		if ( ! self::abilities_api_available() ) {
+			return $out;
+		}
+		foreach ( (array) wp_get_abilities() as $ability ) {
+			if ( is_object( $ability ) && method_exists( $ability, 'get_name' ) ) {
+				$out[ (string) $ability->get_name() ] = $ability;
 			}
 		}
 		ksort( $out );
@@ -89,7 +132,10 @@ class MCP_Tools_Elementor {
 		if ( ! str_starts_with( $slug, 'elementor_' ) ) {
 			$slug = 'ability_' . $slug;
 		}
-		return substr( $slug, 0, 64 );
+		if ( strlen( $slug ) > 64 ) {
+			$slug = substr( $slug, 0, 55 ) . '_' . substr( md5( $id ), 0, 8 );
+		}
+		return $slug;
 	}
 
 	/**
@@ -146,6 +192,47 @@ class MCP_Tools_Elementor {
 			true
 		);
 
+		$tools['abilities_list'] = new MCP_Tool(
+			'abilities_list',
+			'List WordPress abilities',
+			'List abilities registered in the WordPress Abilities API (all namespaces, or one via the namespace argument): id, label, description, read-only flag, input schema and whether a dedicated tool exists. Call it to discover abilities added after you connected.',
+			'abilities',
+			array(
+				'type'       => 'object',
+				'properties' => array( 'namespace' => array( 'type' => 'string', 'description' => 'Optional namespace filter, e.g. elementor.' ) ),
+			),
+			fn( array $args ) => self::run_abilities_list( (string) ( $args['namespace'] ?? '' ) ),
+			fn( array $args ) => current_user_can( 'edit_posts' ),
+			false,
+			array( 'readOnlyHint' => true )
+		);
+
+		$exec_props = array(
+			'id'    => array( 'type' => 'string', 'description' => 'Ability id from abilities_list, e.g. vendor/do-thing.' ),
+			'input' => array( 'type' => 'object', 'description' => 'Input object matching the ability input_schema.' ),
+		);
+		$tools['ability_read'] = new MCP_Tool(
+			'ability_read',
+			'Run a read-only ability',
+			'Run any registered ability that is marked read-only (meta.annotations.readonly = true). Refuses abilities that are not marked read-only; use ability_execute for those.',
+			'abilities',
+			array( 'type' => 'object', 'properties' => $exec_props, 'required' => array( 'id' ) ),
+			fn( array $args ) => self::run_generic( $args, true ),
+			fn( array $args ) => self::generic_allowed( $args ),
+			false,
+			array( 'readOnlyHint' => true )
+		);
+		$tools['ability_execute'] = new MCP_Tool(
+			'ability_execute',
+			'Run any ability (write)',
+			'Run any registered ability, including ones that change data. Off by default; when enabled it waits for admin approval. Elementor pages are backed up first when the input has post_id.',
+			'abilities',
+			array( 'type' => 'object', 'properties' => $exec_props, 'required' => array( 'id' ) ),
+			fn( array $args ) => self::run_generic( $args, false ),
+			fn( array $args ) => self::generic_allowed( $args ),
+			true
+		);
+
 		foreach ( self::abilities() as $id => $ability ) {
 			$name = self::tool_name( $id );
 			if ( isset( $tools[ $name ] ) ) {
@@ -184,6 +271,57 @@ class MCP_Tools_Elementor {
 		}
 
 		return $tools;
+	}
+
+	/**
+	 * @param array<string,mixed> $args Tool arguments (id, input).
+	 */
+	private static function generic_allowed( array $args ): bool {
+		$id      = (string) ( $args['id'] ?? '' );
+		$ability = $id ? wp_get_ability( $id ) : null;
+		if ( ! $ability || ! method_exists( $ability, 'check_permissions' ) ) {
+			return true; // Unknown id: let the runner return a clear error.
+		}
+		$input = is_array( $args['input'] ?? null ) ? $args['input'] : array();
+		return true === $ability->check_permissions( self::ability_input( $ability, $input ) );
+	}
+
+	private static function run_generic( array $args, bool $read_only_only ) {
+		$id = (string) ( $args['id'] ?? '' );
+		if ( ! self::abilities_api_available() ) {
+			throw new RuntimeException( 'The WordPress Abilities API is not available (needs WordPress 6.9+).' );
+		}
+		$ability = wp_get_ability( $id );
+		if ( ! $ability ) {
+			throw new InvalidArgumentException( 'Unknown ability: ' . $id . '. Use abilities_list.' );
+		}
+		if ( ! self::is_bridged( $id ) ) {
+			throw new InvalidArgumentException( 'Ability namespace is not enabled in AI Site Manager > Settings > Bridged ability namespaces.' );
+		}
+		if ( $read_only_only && ! self::is_read_only( $ability ) ) {
+			throw new InvalidArgumentException( 'This ability is not marked read-only. Use ability_execute (needs approval).' );
+		}
+		return self::run_ability( $id, is_array( $args['input'] ?? null ) ? $args['input'] : array() );
+	}
+
+	private static function run_abilities_list( string $namespace ): array {
+		$ns  = trim( $namespace, "/ \t" );
+		$out = array();
+		foreach ( self::all_abilities() as $id => $ability ) {
+			if ( '' !== $ns && ! str_starts_with( $id, $ns . '/' ) ) {
+				continue;
+			}
+			$out[] = array(
+				'id'           => $id,
+				'label'        => method_exists( $ability, 'get_label' ) ? (string) $ability->get_label() : $id,
+				'description'  => method_exists( $ability, 'get_description' ) ? (string) $ability->get_description() : '',
+				'read_only'    => self::is_read_only( $ability ),
+				'bridged'      => self::is_bridged( $id ),
+				'tool'         => self::tool_name( $id ),
+				'input_schema' => method_exists( $ability, 'get_input_schema' ) ? $ability->get_input_schema() : array(),
+			);
+		}
+		return array( 'count' => count( $out ), 'abilities' => $out, 'abilities_api' => self::abilities_api_available() );
 	}
 
 	private static function can_edit( int $id ): bool {
@@ -361,7 +499,7 @@ class MCP_Tools_Elementor {
 		if ( false === $atomic ) {
 			$problems[] = 'Atomic Editor is off (Elementor > Settings > Editor > Atomic Editor).';
 		}
-		if ( $el_version && self::abilities_api_available() && ! $abilities && ! $problems ) {
+		if ( $el_version && self::abilities_api_available() && ! self::abilities() && ! $problems ) {
 			$problems[] = 'No Elementor abilities are registered; check the MCP exposure setting and the MCP Adapter plugin.';
 		}
 		$names = array();
@@ -384,7 +522,13 @@ class MCP_Tools_Elementor {
 			'bridged_abilities'   => count( $abilities ),
 			'problems'            => $problems,
 			'tools'               => $names,
+			'bridged_namespaces'  => self::prefixes(),
+			'all_registered_abilities' => array_map(
+				fn( $id ) => array( 'id' => $id, 'bridged' => self::is_bridged( $id ) ),
+				array_keys( self::all_abilities() )
+			),
 			'note'                => 'Write tools are OFF by default and queued for admin approval; enable them under AI Site Manager > Tools.',
 		);
 	}
 }
+

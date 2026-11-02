@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.3.2
+
+- Clear MCP connector URL with Copy, OAuth/API-key sign-in guidance and secondary REST endpoints.
+- Audit rows for access-mode changes and refused Full-access attempts, with administrator identity. Earlier changes are not backfilled.
+- Horizontally scrollable audit log on small screens.
+
+## 1.3.1
+
+- Settings & Status first and default; Capabilities & Permissions replaces Tools; API Keys last. Tabs, sidebar and hover submenu share labels and order.
+
+## 1.3.0
+
+- Monitor & Guide is the default, including existing installations without an explicit mode choice. An administrator must explicitly select Full access to allow changes. Agents cannot change the mode.
+- Server-side mode enforcement covers MCP calls, REST tool execution and approvals. Pending approvals remain pending in Monitor mode.
+- Monitor mode allows built-in read tools and reviewed third-party read abilities only when supported plugin versions and reviewed source hashes match. Current allowlist: Elementor 4.2.3 (list-pages, get-page-structure, get-globals), Elementor 4.3.5 (list-posts, get-page-structure), AI Visibility 1.3.11 / 1.3.12 (search-content).
+- Reviewed hashes are not a sandbox; AI Visibility search also writes its analytics log. Other bridged abilities are blocked in Monitor mode.
+- Mode indicators in wp-admin, OAuth consent, MCP initialize instructions and site_info.
+- Includes the unreleased 1.2.2 fix: OAuth 401 responses include resource_metadata for discovery, including subdirectory installations.
+
 ## 1.2.1
 
 - New: Settings > "Bridged ability namespaces" (default * = every WordPress Abilities API namespace, or a comma-separated list such as elementor, focusweb-ai-visibility). Abilities from any plugin now become tools named ability_<namespace>_<name> (elementor_* for Elementor). Read-only abilities (meta.annotations.readonly) are on; all others stay off and approval-gated.

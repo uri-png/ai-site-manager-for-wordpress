@@ -29,6 +29,7 @@ final class MCP_Registry {
 	public static function all(): array {
 		if ( null === self::$tools ) {
 			self::$tools = MCP_Tools_Core::discover();
+			$snapshot    = self::snapshot_verified_reads( self::$tools );
 
 			/**
 			 * Filter the discovered tool map. Plugins can register their own
@@ -37,8 +38,63 @@ final class MCP_Registry {
 			 * @param array<string,MCP_Tool> $tools Tool map keyed by tool name.
 			 */
 			self::$tools = apply_filters( 'wpmcp_tools', self::$tools );
+			self::apply_verification( self::$tools, $snapshot );
 		}
 		return self::$tools;
+	}
+
+	/**
+	 * Snapshot this plugin's own read tools right after discovery, before the
+	 * wpmcp_tools filter can touch them. Maps name => [tool object id,
+	 * callback object id]. Bridged abilities (category "elementor") and
+	 * ability meta tools only qualify by explicit name.
+	 *
+	 * @param array<string,MCP_Tool> $tools Freshly discovered tools.
+	 * @return array<string,array{0:int,1:int}>
+	 */
+	public static function snapshot_verified_reads( array $tools ): array {
+		$explicit = array( 'elementor_status', 'elementor_backups_list', 'abilities_list' );
+		$snapshot = array();
+		foreach ( $tools as $name => $tool ) {
+			$name = (string) $name;
+			$ok   = in_array( $name, $explicit, true );
+			if ( ! $ok && 'elementor' !== $tool->category && 'abilities' !== $tool->category ) {
+				$ok = str_ends_with( $name, '_list' ) || str_ends_with( $name, '_get' ) || 'site_info' === $name;
+			}
+			if ( ! $ok && 'elementor' === $tool->category && ( $tool->annotations['readOnlyHint'] ?? false ) === true ) {
+				// Bridged ability: needs a reviewed id, the exact reviewed plugin release
+				// (version + file hashes), AND the ability must still say it only reads.
+				foreach ( array_keys( MCP_Mode::VETTED_SOURCES ) as $vetted_id ) {
+					if ( MCP_Tools_Elementor::tool_name( $vetted_id ) === $name && MCP_Mode::vetted_ability_ok( $vetted_id ) ) {
+						$ok = true;
+						break;
+					}
+				}
+			}
+			if ( $ok && ! $tool->destructive ) {
+				$snapshot[ $name ] = array( spl_object_id( $tool ), spl_object_id( $tool->callback ) );
+			}
+		}
+		return $snapshot;
+	}
+
+	/**
+	 * Apply verification after the filter ran: a tool is verified only if it
+	 * is the very same object and still has the very same callback as at
+	 * discovery. Replaced tools, name collisions, swapped callbacks and flags
+	 * set by other code all end up unverified.
+	 *
+	 * @param array<string,MCP_Tool>             $tools    Final tool map.
+	 * @param array<string,array{0:int,1:int}>   $snapshot From snapshot_verified_reads().
+	 */
+	public static function apply_verification( array $tools, array $snapshot ): void {
+		foreach ( $tools as $name => $tool ) {
+			$name                = (string) $name;
+			$tool->verified_read = isset( $snapshot[ $name ] )
+				&& $snapshot[ $name ][0] === spl_object_id( $tool )
+				&& $snapshot[ $name ][1] === spl_object_id( $tool->callback )
+				&& ! $tool->destructive;
+		}
 	}
 
 	/**
@@ -76,6 +132,16 @@ final class MCP_Registry {
 	 */
 	public static function enabled(): array {
 		return array_filter( self::all(), fn( string $name ) => self::is_enabled( $name ), ARRAY_FILTER_USE_KEY );
+	}
+
+	/**
+	 * Tools an agent may see and run right now: enabled and allowed by the
+	 * access mode (in Monitor mode only read-only tools).
+	 *
+	 * @return array<string,MCP_Tool>
+	 */
+	public static function available(): array {
+		return array_filter( self::enabled(), fn( MCP_Tool $tool ) => ! MCP_Mode::blocks( $tool ) );
 	}
 
 	/**

@@ -89,9 +89,13 @@ final class MCP_REST_Server {
 	}
 
 	/**
-	 * Add RFC 6750 WWW-Authenticate to our 401s so MCP clients can tell the
-	 * endpoint expects a Bearer token (and future OAuth discovery can hang
-	 * off the same header).
+	 * Add RFC 6750 + RFC 9728 WWW-Authenticate to our 401s so MCP clients can
+	 * tell the endpoint expects a Bearer token and where the protected-resource
+	 * metadata lives. The MCP authorization spec requires the resource_metadata
+	 * parameter, and it is what makes OAuth discovery work on subdirectory
+	 * installs: home_url() carries the subfolder, while the domain-root
+	 * well-known URLs a client would otherwise guess are not served by this
+	 * install.
 	 *
 	 * @param WP_REST_Response $response Response.
 	 * @param WP_REST_Server   $server   Server.
@@ -99,7 +103,13 @@ final class MCP_REST_Server {
 	 */
 	public static function add_auth_challenge( $response, $server, $request ) {
 		if ( 401 === $response->get_status() && str_starts_with( (string) $request->get_route(), '/wp-mcp/v1' ) ) {
-			$response->header( 'WWW-Authenticate', 'Bearer realm="wp-mcp-gateway"' );
+			$response->header(
+				'WWW-Authenticate',
+				sprintf(
+					'Bearer realm="wp-mcp-gateway", resource_metadata="%s"',
+					esc_url( home_url( '/.well-known/oauth-protected-resource' ) )
+				)
+			);
 		}
 		return $response;
 	}
@@ -185,11 +195,12 @@ final class MCP_REST_Server {
 				'description' => $tool->description,
 				'category'    => $tool->category,
 				'destructive' => $tool->destructive,
-				'enabled'     => MCP_Registry::is_enabled( $name ),
+				'enabled'     => MCP_Registry::is_enabled( $name ) && ! MCP_Mode::blocks( $tool ),
+				'blocked_by_access_mode' => MCP_Mode::blocks( $tool ),
 				'inputSchema' => $tool->input_schema,
 			);
 		}
-		return new WP_REST_Response( array( 'tools' => $tools ), 200 );
+		return new WP_REST_Response( array( 'access_mode' => MCP_Mode::get(), 'tools' => $tools ), 200 );
 	}
 
 	/**

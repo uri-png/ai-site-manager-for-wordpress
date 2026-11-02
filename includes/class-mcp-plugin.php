@@ -33,6 +33,7 @@ final class MCP_Plugin {
 		add_action( 'init', array( self::class, 'maybe_upgrade' ), 20 );
 		add_action( 'wpmcp_daily_cleanup', array( MCP_OAuth::class, 'cleanup' ) );
 		add_filter( 'query_vars', array( MCP_OAuth::class, 'query_vars' ) );
+		MCP_Mode::init();
 		if ( is_admin() ) {
 			MCP_Admin::init();
 		}

@@ -358,6 +358,8 @@ final class MCP_Tools_Core {
 				'url'              => home_url(),
 				'wordpress'        => get_bloginfo( 'version' ),
 				'plugin_version'   => WPMCP_VERSION,
+				'access_mode'      => MCP_Mode::get(),
+				'access_mode_note' => MCP_Mode::agent_notice(),
 				'woocommerce'      => class_exists( 'WooCommerce' ),
 				'active_plugins'   => (array) get_option( 'active_plugins', array() ),
 				'exposed_post_types' => array_values( get_post_types( array( 'public' => true ) ) ),

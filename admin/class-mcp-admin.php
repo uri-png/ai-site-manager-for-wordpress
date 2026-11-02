@@ -24,7 +24,7 @@ final class MCP_Admin {
 	}
 
 	public static function menu(): void {
-		// Top-level sidebar entry; the five sections live as submenus.
+		// Top-level sidebar entry; the six sections live as submenus.
 		add_menu_page(
 			__( 'AI Site Manager', 'ai-site-manager' ),
 			__( 'AI Site Manager', 'ai-site-manager' ),
@@ -47,12 +47,12 @@ final class MCP_Admin {
 	 */
 	public static function subpages(): array {
 		return array(
-			'keys'      => __( 'API Keys', 'ai-site-manager' ),
-			'tools'     => __( 'Tools', 'ai-site-manager' ),
+			'settings'  => __( 'Settings & Status', 'ai-site-manager' ),
+			'tools'     => __( 'Capabilities & Permissions', 'ai-site-manager' ),
 			'approvals' => __( 'Approvals', 'ai-site-manager' ),
 			'clients'   => __( 'OAuth Clients', 'ai-site-manager' ),
 			'logs'      => __( 'Audit Log', 'ai-site-manager' ),
-			'settings'  => __( 'Settings', 'ai-site-manager' ),
+			'keys'      => __( 'API Keys', 'ai-site-manager' ),
 		);
 	}
 
@@ -60,7 +60,7 @@ final class MCP_Admin {
 	 * The WP page slug for a tab. The first tab reuses the parent slug.
 	 */
 	public static function page_slug( string $tab ): string {
-		return 'keys' === $tab ? self::PAGE_SLUG : self::PAGE_SLUG . '-' . $tab;
+		return 'settings' === $tab ? self::PAGE_SLUG : self::PAGE_SLUG . '-' . $tab;
 	}
 
 	/**
@@ -81,9 +81,9 @@ final class MCP_Admin {
 		} elseif ( isset( $_GET['tab'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification
 			$tab = sanitize_key( (string) $_GET['tab'] ); // phpcs:ignore WordPress.Security.NonceVerification
 		} else {
-			$tab = 'keys';
+			$tab = 'settings';
 		}
-		return array_key_exists( $tab, self::subpages() ) ? $tab : 'keys';
+		return array_key_exists( $tab, self::subpages() ) ? $tab : 'settings';
 	}
 
 	public static function assets( string $hook ): void {
@@ -164,6 +164,16 @@ final class MCP_Admin {
 				self::redirect( array( 'tab' => 'clients', 'wpmcp_notice' => 'client_revoked' ) );
 				break;
 
+			case 'save_mode':
+				$mode = isset( $_POST['wpmcp_access_mode'] ) ? sanitize_key( wp_unslash( (string) $_POST['wpmcp_access_mode'] ) ) : '';
+				if ( MCP_Mode::FULL === $mode && MCP_Mode::FULL !== MCP_Mode::get() && empty( $_POST['wpmcp_confirm_full'] ) ) {
+					MCP_Mode::log_change( MCP_Mode::get(), $mode, get_current_user_id(), MCP_Logger::STATUS_FAILED, 'confirmation box not ticked' );
+					self::redirect( array( 'tab' => 'settings', 'wpmcp_error' => rawurlencode( 'Tick the confirmation box to switch to Full access.' ) ) );
+				}
+				MCP_Mode::set( $mode, get_current_user_id() );
+				self::redirect( array( 'tab' => 'settings', 'wpmcp_notice' => 'saved' ) );
+				break;
+
 			case 'save_settings':
 				update_option( 'wpmcp_enabled', ! empty( $_POST['wpmcp_enabled'] ) ? 1 : 0, false );
 				update_option( 'wpmcp_require_approval', ! empty( $_POST['wpmcp_require_approval'] ) ? 1 : 0, false );
@@ -172,6 +182,14 @@ final class MCP_Admin {
 				self::redirect( array( 'tab' => 'settings', 'wpmcp_notice' => 'saved' ) );
 				break;
 		}
+	}
+
+	/**
+	 * Audit-log actor cell for changes made by a logged-in administrator.
+	 */
+	private static function log_actor( int $user_id ): string {
+		$user = $user_id ? get_userdata( $user_id ) : false;
+		return esc_html( $user ? $user->user_login : '#' . $user_id );
 	}
 
 	private static function redirect( array $args ): void {
@@ -210,8 +228,17 @@ final class MCP_Admin {
 			echo '<div class="notice notice-success wpmcp-new-key"><p><strong>' . esc_html__( 'New API key (shown once - copy it now):', 'ai-site-manager' ) . '</strong></p><p><code>' . esc_html( $new_key ) . '</code></p></div>';
 		}
 
-		echo '<p class="wpmcp-endpoint">' . esc_html__( 'MCP endpoint (JSON-RPC 2.0, POST):', 'ai-site-manager' ) . ' <code>' . esc_html( rest_url( 'wp-mcp/v1/mcp' ) ) . '</code> &nbsp;·&nbsp; ' . esc_html__( 'REST:', 'ai-site-manager' ) . ' <code>' . esc_html( rest_url( 'wp-mcp/v1/tools/list' ) ) . '</code> / <code>' . esc_html( rest_url( 'wp-mcp/v1/tools/execute' ) ) . '</code></p>';
+		$connector = rest_url( 'wp-mcp/v1/mcp' );
+		echo '<div class="wpmcp-connector">';
+		echo '<h2>' . esc_html__( 'MCP connector URL', 'ai-site-manager' ) . '</h2>';
+		echo '<p>' . esc_html__( 'Give this address to your AI agent (for example as a custom connector in Claude). It is how the agent finds this site and learns which management capabilities are available.', 'ai-site-manager' ) . '</p>';
+		echo '<p class="wpmcp-connector-row"><input type="text" id="wpmcp-connector-url" class="large-text code" readonly="readonly" value="' . esc_attr( $connector ) . '" onfocus="this.select();" /> <button type="button" class="button button-primary" id="wpmcp-copy-connector" data-copied="' . esc_attr__( 'Copied', 'ai-site-manager' ) . '">' . esc_html__( 'Copy', 'ai-site-manager' ) . '</button></p>';
+		echo '<p class="description">' . esc_html__( 'The URL alone gives no access. The agent must sign in: either you approve it on the connection screen (OAuth) or you give it an API key from the API Keys tab. It can then only do what the current access mode, the capability switches and the key user\'s WordPress permissions allow.', 'ai-site-manager' ) . '</p>';
+		echo '<details class="wpmcp-rest"><summary>' . esc_html__( 'Advanced: REST endpoints (for developers, not needed to connect an AI agent)', 'ai-site-manager' ) . '</summary><p><code>' . esc_html( rest_url( 'wp-mcp/v1/tools/list' ) ) . '</code><br /><code>' . esc_html( rest_url( 'wp-mcp/v1/tools/execute' ) ) . '</code></p></details>';
+		echo '</div>';
+		echo '<script>document.getElementById("wpmcp-copy-connector").addEventListener("click",function(){var b=this,i=document.getElementById("wpmcp-connector-url"),t=b.textContent;i.select();var d=function(){b.textContent=b.getAttribute("data-copied");setTimeout(function(){b.textContent=t;},1500);};if(navigator.clipboard){navigator.clipboard.writeText(i.value).then(d);}else{document.execCommand("copy");d();}});</script>';
 
+		MCP_Mode::render_banner();
 		self::tabs( $tab );
 
 		switch ( $tab ) {
@@ -238,17 +265,11 @@ final class MCP_Admin {
 	}
 
 	private static function tabs( string $current ): void {
-		$tabs = array(
-			'keys'      => __( 'API Keys', 'ai-site-manager' ),
-			'tools'     => __( 'Tools', 'ai-site-manager' ),
-			'approvals' => sprintf(
-				/* translators: %d: number of pending approval requests. */
-				__( 'Approvals (%d)', 'ai-site-manager' ),
-				count( MCP_Executor::pending() )
-			),
-			'clients'   => __( 'OAuth Clients', 'ai-site-manager' ),
-			'logs'      => __( 'Audit Log', 'ai-site-manager' ),
-			'settings'  => __( 'Settings', 'ai-site-manager' ),
+		$tabs = self::subpages();
+		$tabs['approvals'] = sprintf(
+			/* translators: %d: number of pending approval requests. */
+			__( 'Approvals (%d)', 'ai-site-manager' ),
+			count( MCP_Executor::pending() )
 		);
 		echo '<h2 class="nav-tab-wrapper">';
 		foreach ( $tabs as $slug => $label ) {
@@ -404,9 +425,9 @@ final class MCP_Admin {
 		submit_button( __( 'Filter', 'ai-site-manager' ), 'secondary', 'filter', false );
 		echo '</form>';
 
-		echo '<table class="widefat striped"><thead><tr><th>#</th><th>' . esc_html__( 'Time (UTC)', 'ai-site-manager' ) . '</th><th>' . esc_html__( 'Key', 'ai-site-manager' ) . '</th><th>' . esc_html__( 'Tool', 'ai-site-manager' ) . '</th><th>' . esc_html__( 'Status', 'ai-site-manager' ) . '</th><th>' . esc_html__( 'Payload / message', 'ai-site-manager' ) . '</th></tr></thead><tbody>';
+		echo '<table class="widefat striped wpmcp-log-table"><thead><tr><th>#</th><th>' . esc_html__( 'Time (UTC)', 'ai-site-manager' ) . '</th><th>' . esc_html__( 'Key', 'ai-site-manager' ) . '</th><th>' . esc_html__( 'Tool', 'ai-site-manager' ) . '</th><th>' . esc_html__( 'Status', 'ai-site-manager' ) . '</th><th>' . esc_html__( 'Payload / message', 'ai-site-manager' ) . '</th></tr></thead><tbody>';
 		foreach ( $result['rows'] as $row ) {
-			echo '<tr><td>' . (int) $row->id . '</td><td>' . esc_html( $row->created_at ) . '</td><td><code>' . esc_html( $row->key_prefix ) . '…</code></td><td><code>' . esc_html( $row->tool_name ) . '</code></td><td><span class="wpmcp-status wpmcp-status-' . esc_attr( $row->status ) . '">' . esc_html( $row->status ) . '</span></td>';
+			echo '<tr><td>' . (int) $row->id . '</td><td>' . esc_html( $row->created_at ) . '</td><td>' . ( 'admin' === $row->key_prefix ? self::log_actor( (int) $row->user_id ) : '<code>' . esc_html( $row->key_prefix ) . '…</code>' ) . '</td><td><code>' . esc_html( $row->tool_name ) . '</code></td><td><span class="wpmcp-status wpmcp-status-' . esc_attr( $row->status ) . '">' . esc_html( $row->status ) . '</span></td>';
 			echo '<td><details><summary>' . esc_html( mb_strimwidth( (string) $row->message, 0, 120, '…' ) ) . '</summary><code class="wpmcp-args">' . esc_html( (string) $row->arguments ) . '</code></details></td></tr>';
 		}
 		if ( ! $result['rows'] ) {
@@ -429,12 +450,14 @@ final class MCP_Admin {
 	 * ------------------------------------------------------------------- */
 
 	private static function render_settings(): void {
+		MCP_Mode::render_chooser();
+		echo '<h3>' . esc_html__( 'Other settings', 'ai-site-manager' ) . '</h3>';
 		echo '<form method="post"><input type="hidden" name="wpmcp_action" value="save_settings" />';
 		wp_nonce_field( 'wpmcp_save_settings' );
 		echo '<table class="form-table">';
 		echo '<tr><th scope="row">' . esc_html__( 'MCP server enabled', 'ai-site-manager' ) . '</th><td><label><input type="checkbox" name="wpmcp_enabled" value="1" ' . checked( 1, (int) get_option( 'wpmcp_enabled', 1 ), false ) . ' /> ' . esc_html__( 'Accept API requests', 'ai-site-manager' ) . '</label></td></tr>';
 		echo '<tr><th scope="row">' . esc_html__( 'Human-in-the-loop', 'ai-site-manager' ) . '</th><td><label><input type="checkbox" name="wpmcp_require_approval" value="1" ' . checked( 1, (int) get_option( 'wpmcp_require_approval', 1 ), false ) . ' /> ' . esc_html__( 'Queue destructive tools for admin approval instead of executing immediately', 'ai-site-manager' ) . '</label></td></tr>';
-		echo '<tr><th scope="row">' . esc_html__( 'Bridged ability namespaces', 'ai-site-manager' ) . '</th><td><input type="text" class="regular-text" name="wpmcp_ability_namespaces" value="' . esc_attr( (string) get_option( 'wpmcp_ability_namespaces', '*' ) ) . '" /><p class="description">' . esc_html__( 'WordPress Abilities API abilities exposed as tools. Use * for all, or a comma-separated list of namespaces such as elementor, focusweb-ai-visibility. Read-only abilities are on by default; all others are off until enabled in Tools and need approval.', 'ai-site-manager' ) . '</p></td></tr>';
+		echo '<tr><th scope="row">' . esc_html__( 'Bridged ability namespaces', 'ai-site-manager' ) . '</th><td><input type="text" class="regular-text" name="wpmcp_ability_namespaces" value="' . esc_attr( (string) get_option( 'wpmcp_ability_namespaces', '*' ) ) . '" /><p class="description">' . esc_html__( 'WordPress Abilities API abilities exposed as tools. Use * for all, or a comma-separated list of namespaces such as elementor, focusweb-ai-visibility. Read-only abilities are on by default; all others are off until enabled in Capabilities & Permissions and need approval.', 'ai-site-manager' ) . '</p></td></tr>';
 		echo '</table>';
 		submit_button();
 		echo '</form>';

@@ -102,7 +102,7 @@ final class MCP_MCP {
 					'title'   => 'AI Site Manager (' . get_bloginfo( 'name' ) . ')',
 					'version' => WPMCP_VERSION,
 				),
-				'instructions'    => 'WordPress tools exposed by AI Site Manager. Destructive actions may require administrator approval; a pending_approval result includes an approval_id to poll.',
+				'instructions'    => 'WordPress tools exposed by AI Site Manager. ' . MCP_Mode::agent_notice() . ' Destructive actions may require administrator approval; a pending_approval result includes an approval_id to poll.',
 			)
 		);
 	}
@@ -112,7 +112,7 @@ final class MCP_MCP {
 	 */
 	private static function tools_list( $id ): WP_REST_Response {
 		$tools = array();
-		foreach ( MCP_Registry::enabled() as $tool ) {
+		foreach ( MCP_Registry::available() as $tool ) {
 			$tools[] = $tool->to_mcp_schema();
 		}
 		return self::rpc_result( $id, array( 'tools' => $tools ) );

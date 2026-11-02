@@ -463,6 +463,7 @@ final class MCP_OAuth {
 </head><body><div class="card">';
 		echo '<h1>' . esc_html( $client->client_name ) . ' wants to connect</h1>';
 		echo '<p>It will act on this site as <strong>' . esc_html( $user->user_login ) . '</strong>, limited to that account\'s WordPress permissions.</p>';
+		echo '<p><strong>' . esc_html( MCP_Mode::label() ) . '.</strong> ' . esc_html( MCP_Mode::summary() ) . '</p>';
 		echo '<p class="muted">Site: ' . esc_html( home_url() ) . '</p>';
 		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- $action is esc_url()'d, $hidden built from esc_attr()'d parts, $nonce is wp_nonce_field() output.
 		echo '<form method="get" action="' . $action . '">' . $hidden . $nonce . '<input type="hidden" name="wpmcp_consent" value="1" />';

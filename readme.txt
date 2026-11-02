@@ -4,7 +4,7 @@ Tags: mcp, ai, json-rpc, api, automation
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 8.0
-Stable tag: 1.2.1
+Stable tag: 1.3.2
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -29,6 +29,21 @@ AI Site Manager turns a WordPress site into an MCP (Model Context Protocol) serv
 3. Connect your MCP client to https://yoursite/wp-json/wp-mcp/v1/mcp - either with an Authorization: Bearer <key> header or via the built-in OAuth flow.
 
 == Changelog ==
+
+= 1.3.2 =
+* Changed: the MCP connector URL is now a prominent box with a Copy button and a plain explanation that it is the address to give your AI agent, and that it needs sign-in (OAuth approval or API key) to do anything. The REST endpoints moved to a collapsed Advanced section.
+* New: the Audit Log now records access-mode changes (Monitor & Guide <-> Full access), including who made the change, and refused attempts (Full access without the confirmation tick). Changes made before this version are not in the log.
+
+= 1.3.1 =
+* Navigation: Settings & Status is first and opens by default. Tools is now Capabilities & Permissions. API Keys is last. Sidebar and tabs share the same labels and order.
+
+= 1.3.0 =
+* New: access modes. "Monitor & Guide" (read-only, the default) lets connected AI agents read and advise but blocks every tool that changes the site; "Full access" allows changes as before. A site administrator picks the mode in AI Site Manager > Settings & Status (switching to Full access needs a confirmation tick). Agents cannot change the mode.
+* New: the mode is always visible - an admin-bar badge on every screen, a banner on the plugin pages, the OAuth consent screen, MCP initialize instructions and the site_info tool.
+* New: enforcement is in the executor, so MCP tools/call, REST /tools/execute and the approval queue are all blocked in Monitor mode (not only hidden). Queued approvals stay pending until Full access is chosen. Monitor mode lists only read-only tools in tools/list.
+* Changed: sites without a saved choice, including existing installs after this update, run in Monitor mode until an administrator chooses. An admin notice says so.
+* Monitor mode runs only this plugin's own built-in read tools plus three reviewed Elementor read abilities (elementor/list-pages, get-page-structure, get-globals). Other bridged tools, ability_read and ability_execute are blocked.
+* Includes 1.2.2: 401 responses carry resource_metadata (RFC 9728) for installs in a subdirectory.
 
 = 1.2.1 =
 * New: Settings > "Bridged ability namespaces" (default * = every WordPress Abilities API namespace, or a comma-separated list such as elementor, focusweb-ai-visibility). Abilities from any plugin now become tools named ability_<namespace>_<name> (elementor_* for Elementor). Read-only abilities (meta.annotations.readonly) are on; all others stay off and approval-gated.

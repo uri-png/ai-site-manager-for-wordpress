@@ -293,10 +293,10 @@ class MCP_Tools_Elementor {
 		}
 		$ability = wp_get_ability( $id );
 		if ( ! $ability ) {
-			throw new InvalidArgumentException( 'Unknown ability: ' . $id . '. Use abilities_list.' );
+			throw new InvalidArgumentException( 'Unknown ability: ' . esc_html( $id ) . '. Use abilities_list.' );
 		}
 		if ( ! self::is_bridged( $id ) ) {
-			throw new InvalidArgumentException( 'Ability namespace is not enabled in AI Site Manager > Settings > Bridged ability namespaces.' );
+			throw new InvalidArgumentException( 'Ability namespace is not enabled in AI Site Manager > Settings & Status > Bridged ability namespaces.' );
 		}
 		if ( $read_only_only && ! self::is_read_only( $ability ) ) {
 			throw new InvalidArgumentException( 'This ability is not marked read-only. Use ability_execute (needs approval).' );
@@ -352,7 +352,7 @@ class MCP_Tools_Elementor {
 	private static function run_ability( string $id, array $args ) {
 		$ability = wp_get_ability( $id );
 		if ( ! $ability ) {
-			throw new RuntimeException( 'Elementor ability not available: ' . $id );
+			throw new RuntimeException( 'Elementor ability not available: ' . esc_html( $id ) );
 		}
 		$backup = null;
 		if ( ! self::is_read_only( $ability ) && ! empty( $args['post_id'] ) ) {
@@ -360,7 +360,7 @@ class MCP_Tools_Elementor {
 		}
 		$result = $ability->execute( self::ability_input( $ability, $args ) );
 		if ( is_wp_error( $result ) ) {
-			throw new RuntimeException( $result->get_error_message() );
+			throw new RuntimeException( esc_html( $result->get_error_message() ) );
 		}
 		if ( $backup && is_array( $result ) ) {
 			$result['_backup_id'] = $backup;
@@ -527,7 +527,7 @@ class MCP_Tools_Elementor {
 				fn( $id ) => array( 'id' => $id, 'bridged' => self::is_bridged( $id ) ),
 				array_keys( self::all_abilities() )
 			),
-			'note'                => 'Write tools are OFF by default and queued for admin approval; enable them under AI Site Manager > Tools.',
+			'note'                => 'Write tools are OFF by default and queued for admin approval; enable them under AI Site Manager > Capabilities & Permissions.',
 		);
 	}
 }

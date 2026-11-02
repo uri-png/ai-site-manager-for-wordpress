@@ -48,6 +48,11 @@ final class MCP_Executor {
 			return array( 'ok' => false, 'error' => "Tool is disabled by the site administrator: {$name}" );
 		}
 
+		if ( MCP_Mode::blocks( $tool ) ) {
+			MCP_Logger::log( $log_base + array( 'status' => MCP_Logger::STATUS_FAILED, 'message' => 'Blocked: site is in Monitor & Guide (read-only) mode.' ) );
+			return array( 'ok' => false, 'error' => MCP_Mode::blocked_message( $name ) );
+		}
+
 		$valid = self::validate( $tool->exec_schema ?? $tool->input_schema, $arguments );
 		if ( is_wp_error( $valid ) ) {
 			MCP_Logger::log( $log_base + array( 'status' => MCP_Logger::STATUS_FAILED, 'message' => 'Validation: ' . $valid->get_error_message() ) );
@@ -95,6 +100,11 @@ final class MCP_Executor {
 	 * @return array{ok:bool,data?:mixed,error?:string}
 	 */
 	private static function run( MCP_Tool $tool, array $arguments, array $log_base ): array {
+		// Last line of defence: no code path reaches a callback that changes data in Monitor mode.
+		if ( MCP_Mode::blocks( $tool ) ) {
+			MCP_Logger::log( $log_base + array( 'status' => MCP_Logger::STATUS_FAILED, 'message' => 'Blocked: site is in Monitor & Guide (read-only) mode.' ) );
+			return array( 'ok' => false, 'error' => MCP_Mode::blocked_message( $tool->name ) );
+		}
 		try {
 			$data = call_user_func( $tool->callback, $arguments );
 			MCP_Logger::log( $log_base + array( 'status' => MCP_Logger::STATUS_SUCCESS, 'message' => self::summarize( $data ) ) );
@@ -144,6 +154,10 @@ final class MCP_Executor {
 		$tool = MCP_Registry::get( $row->tool_name );
 		if ( ! $tool || ! MCP_Registry::is_enabled( $row->tool_name ) ) {
 			return array( 'ok' => false, 'error' => 'The tool no longer exists or is disabled.' );
+		}
+
+		if ( MCP_Mode::blocks( $tool ) ) {
+			return array( 'ok' => false, 'error' => 'The site is in Monitor & Guide (read-only) mode. Switch to Full access in Settings & Status before approving changes; the request stays pending.' );
 		}
 
 		$arguments = json_decode( (string) $row->arguments, true );

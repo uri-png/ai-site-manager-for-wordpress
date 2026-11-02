@@ -13,3 +13,20 @@
 .wpmcp .wpmcp-log-filters { margin: 12px 0; }
 
 
+
+.wpmcp .wpmcp-mode-banner { margin: 12px 0; padding: 10px 14px; border-left: 4px solid; border-radius: 3px; background: #fff; }
+.wpmcp .wpmcp-mode-monitor { border-color: #00a32a; background: #edfaef; }
+.wpmcp .wpmcp-mode-full { border-color: #b32d2e; background: #fcf0f1; }
+.wpmcp .wpmcp-mode-choice label { display: block; }
+
+.wpmcp .wpmcp-connector { margin: 16px 0; padding: 14px 18px; background: #fff; border: 1px solid #c3c4c7; border-left: 4px solid #2271b1; border-radius: 3px; }
+.wpmcp .wpmcp-connector h2 { margin: 0 0 6px; padding: 0; font-size: 16px; }
+.wpmcp .wpmcp-connector-row { display: flex; gap: 8px; align-items: center; max-width: 900px; }
+.wpmcp .wpmcp-connector-row input { flex: 1; min-width: 0; }
+.wpmcp .wpmcp-rest { margin-top: 8px; color: #50575e; }
+.wpmcp .wpmcp-rest code { background: #f0f0f1; padding: 2px 5px; word-break: break-all; }
+@media (max-width: 782px) {
+	.wpmcp .wpmcp-log-table { display: block; overflow-x: auto; }
+	.wpmcp .wpmcp-log-table td, .wpmcp .wpmcp-log-table th { white-space: nowrap; }
+	.wpmcp .wpmcp-log-table td:last-child { white-space: normal; min-width: 260px; }
+}

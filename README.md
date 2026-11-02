@@ -4,6 +4,20 @@ A secure, stateless **MCP (Model Context Protocol) server for WordPress**. It le
 
 Built by [FocusWeb Ltd.](https://focusweb.co.il)
 
+## Version 1.3.2 update notice
+
+Sites without an explicit access-mode choice, including existing installations, now start in **Monitor & Guide**. A site administrator must choose **Full access** under **AI Site Manager > Settings & Status** before AI tools can change content. Agents cannot change this setting. Existing queued approvals stay pending while Monitor mode is active.
+
+Monitor mode is enforced in the server-side executor for MCP calls, REST tool execution and approvals. It allows the plugin's built-in read tools and only the third-party read abilities whose installed version and reviewed source-file hashes match the allowlist. Other bridged abilities are blocked in Monitor mode, even when they declare themselves read-only.
+
+The reviewed allowlist includes Elementor 4.2.3 (`list-pages`, `get-page-structure`, `get-globals`), Elementor 4.3.5 (`list-posts`, `get-page-structure`), and AI Visibility 1.3.11 / 1.3.12 (`search-content`). These are source-code checks, not a sandbox. AI Visibility search also writes its own analytics log. Other versions or changed reviewed files fail closed.
+
+Version 1.3.2 adds a prominent MCP connector URL with Copy and sign-in guidance, consistent navigation, mobile audit-log scrolling, and audit rows for access-mode changes and refused Full-access attempts. Earlier mode changes are not backfilled. OAuth 401 responses include resource metadata for discovery, including subdirectory installations.
+
+The URL alone gives no access: the AI agent must authenticate with OAuth approval or an API key and remains limited by the chosen access mode, capability switches and WordPress user permissions.
+
+Release checks do not include full end-to-end Claude OAuth validation.
+
 ## What it does
 
 - **MCP endpoint** (JSON-RPC 2.0): `POST /wp-json/wp-mcp/v1/mcp` - speaks `initialize`, `ping`, `tools/list`, `tools/call`. Plain JSON responses.
@@ -94,14 +108,16 @@ Create/update accept `meta` (public custom fields), `terms` (assign categories/t
 
 ## Approval queue
 
-Destructive tools (`*_delete`) ship **off by default**. When enabled in AI Site Manager > Settings, a destructive call does not execute: it returns `pending_approval` with an `approval_id`, an admin reviews it under AI Site Manager > Approvals, and the client polls with the `approval_id` to get the outcome.
+Destructive tools (`*_delete`) ship **off by default**. When enabled in AI Site Manager > Settings & Status, a destructive call does not execute: it returns `pending_approval` with an `approval_id`, an admin reviews it under AI Site Manager > Approvals, and the client polls with the `approval_id` to get the outcome.
 
 ## Development
 
 ```bash
-php tests/harness.php   # 136 tests, no WordPress needed (stubbed core)
+php tests/harness.php   # Legacy v1.2.1 harness; not the current release-validation suite
 ./build-zip.sh          # dist/ai-site-manager-<version>.zip (tests excluded)
 ```
+
+The retained `tests/harness.php` predates access modes and is not claimed to pass against 1.3.2 unchanged. The release installation ZIP is the exact tested artifact attached to the release; rebuilding creates a new ZIP and is not a byte-for-byte checksum match.
 
 ## License
 

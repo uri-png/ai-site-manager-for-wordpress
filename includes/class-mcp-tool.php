@@ -38,6 +38,14 @@ final class MCP_Tool {
 	public ?array $exec_schema = null;
 
 	/**
+	 * Set only by MCP_Registry for this plugin's own built-in read tools.
+	 * Annotations and tool names supplied by other code are never trusted.
+	 *
+	 * @var bool
+	 */
+	public bool $verified_read = false;
+
+	/**
 	 * @param string                $name          Machine name: [a-z0-9_], max 64 chars (MCP-safe).
 	 * @param string                $title         Human title.
 	 * @param string                $description   What the tool does; shown to the AI agent.
@@ -64,13 +72,25 @@ final class MCP_Tool {
 	}
 
 	/**
+	 * Whether this tool is a verified read-only tool. Fails closed: only this
+	 * plugin's own built-in read tools qualify. A tool's own name or MCP
+	 * annotations (including bridged third-party abilities and anything added
+	 * through the wpmcp_tools filter) do not make it read-only for the
+	 * access mode.
+	 */
+	public function is_read_only(): bool {
+		return ! $this->destructive && $this->verified_read;
+	}
+
+	/**
 	 * MCP tools/list representation.
 	 *
 	 * @return array<string,mixed>
 	 */
 	public function to_mcp_schema(): array {
 		$read_only = ! $this->destructive
-			&& ( str_ends_with( $this->name, '_list' ) || str_ends_with( $this->name, '_get' ) || 'site_info' === $this->name );
+			&& ( $this->verified_read || ( $this->annotations['readOnlyHint'] ?? false ) === true
+				|| str_ends_with( $this->name, '_list' ) || str_ends_with( $this->name, '_get' ) || 'site_info' === $this->name );
 
 		return array(
 			'name'        => $this->name,

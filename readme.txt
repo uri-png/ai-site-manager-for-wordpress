@@ -4,7 +4,7 @@ Tags: mcp, ai, json-rpc, api, automation
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 8.0
-Stable tag: 1.3.2
+Stable tag: 1.3.4
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -29,6 +29,14 @@ AI Site Manager turns a WordPress site into an MCP (Model Context Protocol) serv
 3. Connect your MCP client to https://yoursite/wp-json/wp-mcp/v1/mcp - either with an Authorization: Bearer <key> header or via the built-in OAuth flow.
 
 == Changelog ==
+
+= 1.3.4 =
+* New: "Check for updates" link on the Plugins screen row. After a manual check finds a newer GitHub release, the row offers "Update now" with a confirmation. Manual only.
+
+= 1.3.3 (private build) =
+* New: manual "Updates from GitHub" box in Settings & Status. Check for the latest release and install it with one click; nothing runs automatically. Versions before 1.3.3 do not have the button, so moving to 1.3.3 is a normal ZIP upload.
+* Fixed: the upgrade routine re-ran on every request after an update because the stored version was never refreshed.
+* Changed: plugin and author links point to https://www.focusweb.co.il/?lang=en.
 
 = 1.3.2 =
 * Changed: the MCP connector URL is now a prominent box with a Copy button and a plain explanation that it is the address to give your AI agent, and that it needs sign-in (OAuth approval or API key) to do anything. The REST endpoints moved to a collapsed Advanced section.

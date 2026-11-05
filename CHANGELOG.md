@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.3.4
+
+- New: the Plugins screen has a "Check for updates" link on the AI Site Manager row. After a manual check finds a newer GitHub release, the row shows an "Update now" button with the same confirmation. Still manual only: nothing is checked or installed in the background.
+
+## 1.3.3 (private build, never published)
+
+- New: manual "Updates from GitHub" box in Settings & Status. "Check GitHub for updates" shows the latest release; "Update now" installs the plugin ZIP attached to it (checksum and version verified, plugin kept active, keys and settings kept). Nothing is automatic. Needs an administrator with the update_plugins capability. Versions before 1.3.3 do not have the button, so the first move to 1.3.3 is a normal ZIP upload.
+- Fix: the stored plugin version was never updated after the first install, so the upgrade routine (including a rewrite-rules flush) re-ran on every request after any update. It now saves the new version once.
+- Plugin URI, Author URI and the README "Built by" link point to https://www.focusweb.co.il/?lang=en.
+
 ## 1.3.2
 
 - Clear MCP connector URL with Copy, OAuth/API-key sign-in guidance and secondary REST endpoints.

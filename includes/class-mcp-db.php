@@ -84,7 +84,7 @@ final class MCP_DB {
 			dbDelta( $statement );
 		}
 
-		add_option( 'wpmcp_version', WPMCP_VERSION );
+		update_option( 'wpmcp_version', WPMCP_VERSION, false );
 	}
 
 	/**

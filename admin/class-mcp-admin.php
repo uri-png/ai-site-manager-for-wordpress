@@ -98,6 +98,16 @@ final class MCP_Admin {
 	 * Every action is nonce- and capability-checked.
 	 */
 	public static function handle_actions(): void {
+		// Plugins-screen "Update now" link (nonce-protected GET; a form cannot be nested in the Plugins list form).
+		if ( isset( $_GET['wpmcp_install'] ) && current_user_can( 'manage_options' ) ) {
+			check_admin_referer( 'wpmcp_install_update' );
+			$version = sanitize_text_field( wp_unslash( (string) $_GET['wpmcp_install'] ) );
+			$result  = MCP_Updater::install( $version );
+			if ( is_wp_error( $result ) ) {
+				self::redirect( array( 'tab' => 'settings', 'wpmcp_error' => rawurlencode( $result->get_error_message() ) ) );
+			}
+			self::redirect( array( 'tab' => 'settings', 'wpmcp_notice' => 'updated' ) );
+		}
 		if ( ! current_user_can( 'manage_options' ) || ! isset( $_POST['wpmcp_action'] ) ) {
 			return;
 		}
@@ -172,6 +182,20 @@ final class MCP_Admin {
 				}
 				MCP_Mode::set( $mode, get_current_user_id() );
 				self::redirect( array( 'tab' => 'settings', 'wpmcp_notice' => 'saved' ) );
+				break;
+
+			case 'check_update':
+				MCP_Updater::latest( true );
+				self::redirect( array( 'tab' => 'settings', 'wpmcp_checked' => '1' ) );
+				break;
+
+			case 'install_update':
+				$version = isset( $_POST['wpmcp_version'] ) ? sanitize_text_field( wp_unslash( (string) $_POST['wpmcp_version'] ) ) : '';
+				$result  = MCP_Updater::install( $version );
+				if ( is_wp_error( $result ) ) {
+					self::redirect( array( 'tab' => 'settings', 'wpmcp_error' => rawurlencode( $result->get_error_message() ) ) );
+				}
+				self::redirect( array( 'tab' => 'settings', 'wpmcp_notice' => 'updated' ) );
 				break;
 
 			case 'save_settings':
@@ -461,6 +485,7 @@ final class MCP_Admin {
 		echo '</table>';
 		submit_button();
 		echo '</form>';
+		MCP_Updater::render_box();
 	}
 }
 

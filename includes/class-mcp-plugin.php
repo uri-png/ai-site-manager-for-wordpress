@@ -35,6 +35,10 @@ final class MCP_Plugin {
 		add_filter( 'query_vars', array( MCP_OAuth::class, 'query_vars' ) );
 		MCP_Mode::init();
 		if ( is_admin() ) {
+			add_filter( 'plugin_action_links_' . plugin_basename( WPMCP_PLUGIN_FILE ), array( MCP_Updater::class, 'action_links' ) );
+			add_action( 'after_plugin_row_' . plugin_basename( WPMCP_PLUGIN_FILE ), array( MCP_Updater::class, 'plugin_row_notice' ) );
+		}
+		if ( is_admin() ) {
 			MCP_Admin::init();
 		}
 	}

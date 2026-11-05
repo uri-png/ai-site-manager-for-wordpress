@@ -1,13 +1,13 @@
 <?php
 /**
  * Plugin Name:       AI Site Manager
- * Plugin URI:        https://focusweb.co.il/
+ * Plugin URI:        https://www.focusweb.co.il/?lang=en
  * Description:       A secure, stateless MCP (Model Context Protocol) gateway for WordPress. Lets external AI agents (n8n, Claude, custom apps) discover and execute WordPress actions safely over HTTP POST (JSON-RPC 2.0), with scoped API keys, capability checks, human-in-the-loop approvals and a full audit log.
- * Version:           1.3.2
+ * Version:           1.3.4
  * Requires at least: 6.0
  * Requires PHP:      8.0
  * Author:            FocusWeb
- * Author URI:        https://focusweb.co.il/
+ * Author URI:        https://www.focusweb.co.il/?lang=en
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain:       ai-site-manager
@@ -19,7 +19,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'WPMCP_VERSION', '1.3.2' );
+define( 'WPMCP_VERSION', '1.3.4' );
 define( 'WPMCP_PLUGIN_FILE', __FILE__ );
 define( 'WPMCP_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WPMCP_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -37,6 +37,7 @@ require_once WPMCP_PLUGIN_DIR . 'includes/class-mcp-executor.php';
 require_once WPMCP_PLUGIN_DIR . 'includes/class-mcp-mcp.php';
 require_once WPMCP_PLUGIN_DIR . 'includes/class-mcp-oauth.php';
 require_once WPMCP_PLUGIN_DIR . 'includes/class-mcp-rest-server.php';
+require_once WPMCP_PLUGIN_DIR . 'includes/class-mcp-updater.php';
 require_once WPMCP_PLUGIN_DIR . 'admin/class-mcp-admin.php';
 require_once WPMCP_PLUGIN_DIR . 'includes/class-mcp-plugin.php';
 

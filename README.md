@@ -2,7 +2,7 @@
 
 A secure, stateless **MCP (Model Context Protocol) server for WordPress**. It lets external AI agents - Claude, ChatGPT, Gemini, n8n, custom apps - discover and execute WordPress actions over plain HTTP POST with JSON-RPC 2.0. No SSE, no long-lived connections.
 
-Built by [FocusWeb Ltd.](https://focusweb.co.il)
+Built by [FocusWeb Ltd.](https://www.focusweb.co.il/?lang=en)
 
 ## Version 1.3.2 update notice
 

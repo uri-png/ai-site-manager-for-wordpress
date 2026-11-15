@@ -98,6 +98,17 @@ final class MCP_Admin {
 	 * Every action is nonce- and capability-checked.
 	 */
 	public static function handle_actions(): void {
+		// Admin-bar badge click (nonce-protected GET): re-run the mode check and the same
+		// manual GitHub check as "Check GitHub for updates", then show Settings & Status.
+		if ( isset( $_GET['wpmcp_recheck'] ) && current_user_can( 'manage_options' ) ) {
+			check_admin_referer( 'wpmcp_recheck' );
+			if ( ! current_user_can( 'update_plugins' ) ) {
+				self::redirect( array( 'tab' => 'settings', 'wpmcp_error' => rawurlencode( 'You are not allowed to update plugins on this site.' ) ) );
+			}
+			MCP_Mode::recheck();
+			MCP_Updater::latest( true );
+			self::redirect( array( 'tab' => 'settings', 'wpmcp_checked' => '1' ) );
+		}
 		// Plugins-screen "Update now" link (nonce-protected GET; a form cannot be nested in the Plugins list form).
 		if ( isset( $_GET['wpmcp_install'] ) && current_user_can( 'manage_options' ) ) {
 			check_admin_referer( 'wpmcp_install_update' );

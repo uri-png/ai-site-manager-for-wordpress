@@ -26,7 +26,7 @@ $GLOBALS['users']      = array(
 	2 => (object) array( 'ID' => 2, 'user_login' => 'editor', 'display_name' => 'Ed', 'user_email' => 'e@b.c', 'user_registered' => '2020-01-01 00:00:00', 'roles' => array( 'editor' ) ),
 );
 $GLOBALS['caps']       = array( // user_id => cap => bool
-	1 => array( 'read' => true, 'edit_post' => true, 'edit_posts' => true, 'publish_posts' => true, 'list_users' => true, 'upload_files' => true, 'manage_options' => true, 'manage_categories' => true ),
+	1 => array( 'read' => true, 'edit_post' => true, 'edit_posts' => true, 'publish_posts' => true, 'list_users' => true, 'upload_files' => true, 'manage_options' => true, 'manage_categories' => true, 'update_plugins' => true ),
 	2 => array( 'read' => true, 'edit_posts' => true, 'publish_posts' => false, 'list_users' => false, 'upload_files' => true ),
 );
 $GLOBALS['current_uid'] = 0;
@@ -319,6 +319,23 @@ function selected( $a, $b = true, $e = true ) { $r = $a === $b ? ' selected' : '
 function checked( $a, $b = true, $e = true ) { $r = $a === $b ? ' checked' : ''; if ( $e ) { echo $r; } return $r; }
 function get_transient( $k ) { return $GLOBALS['transients'][ $k ] ?? false; }
 function set_transient( $k, $v, $ttl = 0 ) { $GLOBALS['transients'][ $k ] = $v; return true; }
+function delete_transient( $k ) { unset( $GLOBALS['transients'][ $k ] ); return true; }
+
+/* ---------------- mock HTTP (only answers when a test sets it) ---------------- */
+$GLOBALS['mock_http']       = null; // array( 'code' => int, 'body' => string ) or WP_Error
+$GLOBALS['mock_http_calls'] = 0;
+function wp_remote_get( $url, $args = array() ) {
+	$GLOBALS['mock_http_calls']++;
+	$GLOBALS['mock_http_urls'][] = $url;
+	$mock = $GLOBALS['mock_http'];
+	if ( $mock instanceof WP_Error ) { return $mock; }
+	return array(
+		'response' => array( 'code' => $mock['code'] ?? 200 ),
+		'body'     => (string) ( $mock['body'] ?? '' ),
+	);
+}
+function wp_remote_retrieve_response_code( $r ) { return (int) ( $r['response']['code'] ?? 0 ); }
+function wp_remote_retrieve_body( $r ) { return (string) ( $r['body'] ?? '' ); }
 function wp_next_scheduled( $h ) { return $GLOBALS['cron'][ $h ] ?? false; }
 function wp_schedule_event( $ts, $rec, $h ) { $GLOBALS['cron'][ $h ] = $ts; return true; }
 function wp_clear_scheduled_hook( $h ) { unset( $GLOBALS['cron'][ $h ] ); }
@@ -338,6 +355,7 @@ function get_query_var( $k ) { return $GLOBALS['qvars'][ $k ] ?? ''; }
 function untrailingslashit( $v ) { return rtrim( $v, '/' ); }
 function flush_rewrite_rules() {}
 function add_rewrite_rule( ...$a ) {}
+function wp_nonce_url( $u, $a = '' ) { return $u . ( str_contains( (string) $u, '?' ) ? '&' : '?' ) . '_wpnonce=test'; }
 function add_query_arg( $args, $url = '' ) {
 	if ( is_string( $args ) ) { $args = array( $args => func_get_arg( 1 ) ); $url = func_num_args() > 2 ? func_get_arg( 2 ) : ''; }
 	$sep = str_contains( $url, '?' ) ? '&' : '?';
@@ -387,6 +405,8 @@ require WPMCP_PLUGIN_DIR . 'includes/class-mcp-tools-yoast.php';
 require WPMCP_PLUGIN_DIR . 'includes/class-mcp-tools-elementor.php';
 require WPMCP_PLUGIN_DIR . 'includes/class-mcp-executor.php';
 require WPMCP_PLUGIN_DIR . 'includes/class-mcp-mcp.php';
+require WPMCP_PLUGIN_DIR . 'includes/class-mcp-mode.php';
+require WPMCP_PLUGIN_DIR . 'includes/class-mcp-updater.php';
 require WPMCP_PLUGIN_DIR . 'includes/class-mcp-rest-server.php';
 require WPMCP_PLUGIN_DIR . 'includes/class-mcp-oauth.php';
 require WPMCP_PLUGIN_DIR . 'includes/class-mcp-plugin.php';
@@ -398,6 +418,11 @@ function check( $label, $cond ) {
 	global $failures;
 	if ( $cond ) { echo "PASS  {$label}\n"; } else { $failures++; echo "FAIL  {$label}\n"; }
 }
+
+// Access modes (1.3.0+) default to Monitor & Guide, which hides and blocks write
+// tools. The tests below exercise write tools, approvals and MCP calls, so put
+// the site in Full access, as an administrator would.
+update_option( MCP_Mode::OPTION, 'full' );
 
 MCP_DB::activate();
 check( 'activation creates audit table', isset( $GLOBALS['db_tables']['wp_mcp_audit_logs'] ) );
@@ -968,6 +993,108 @@ check( 'ability_execute: runs after approval', ! empty( $ap['ok'] ) && 1 === cou
 $r = MCP_Executor::execute( 'elementor_status', array(), $api_key );
 check( 'elementor_status: lists all registered abilities', ! empty( $r['ok'] ) && 5 === count( $r['data']['all_registered_abilities'] ) && array( '*' ) === $r['data']['bridged_namespaces'] );
 $GLOBALS['mock_abilities'] = array(); $rp->setValue( null, null );
+
+// Admin-bar badge: mode + version, and an update offer from the last manual check.
+final class FakeAdminBar {
+	public array $nodes = array();
+	public function add_node( $args ) { $this->nodes[ $args['id'] ] = $args; }
+}
+$GLOBALS['current_uid'] = 0;
+$bar = new FakeAdminBar();
+MCP_Mode::admin_bar( $bar );
+check( 'admin bar badge hidden from non-admins', array() === $bar->nodes );
+$GLOBALS['current_uid'] = 1;
+delete_option( 'wpmcp_update_seen' );
+delete_option( MCP_Mode::OPTION );
+$bar = new FakeAdminBar();
+MCP_Mode::admin_bar( $bar );
+check( 'badge shows mode and installed version', isset( $bar->nodes['wpmcp-mode'] ) && false !== strpos( $bar->nodes['wpmcp-mode']['title'], 'Monitor only' ) && false !== strpos( $bar->nodes['wpmcp-mode']['title'], 'v' . WPMCP_VERSION ) );
+update_option( MCP_Mode::OPTION, 'full' );
+$bar = new FakeAdminBar();
+MCP_Mode::admin_bar( $bar );
+check( 'badge shows Full access when set', false !== strpos( $bar->nodes['wpmcp-mode']['title'], 'Full access' ) );
+delete_option( MCP_Mode::OPTION );
+check( 'no update offer without a stored check', ! isset( $bar->nodes['wpmcp-mode-update'] ) && false === strpos( $bar->nodes['wpmcp-mode']['title'], 'Update:' ) );
+update_option( 'wpmcp_update_seen', array( 'version' => '9.9.9', 'url' => 'https://example.test/release', 'time' => time() ) );
+$bar = new FakeAdminBar();
+MCP_Mode::admin_bar( $bar );
+check( 'badge offers the newer version found by the last check', false !== strpos( $bar->nodes['wpmcp-mode']['title'], 'Update: 9.9.9' ) );
+check( 'update child links to the installer', isset( $bar->nodes['wpmcp-mode-update'] ) && false !== strpos( (string) $bar->nodes['wpmcp-mode-update']['href'], 'wpmcp_install=9.9.9' ) && 'wpmcp-mode' === $bar->nodes['wpmcp-mode-update']['parent'] );
+update_option( 'wpmcp_update_seen', array( 'version' => '9.9.9', 'url' => '', 'time' => time() - 8 * DAY_IN_SECONDS ) );
+check( 'week-old check result is ignored', null === MCP_Updater::seen_newer() );
+update_option( 'wpmcp_update_seen', array( 'version' => '0.0.1', 'url' => '', 'time' => time() ) );
+check( 'older version is not an update', null === MCP_Updater::seen_newer() );
+delete_option( 'wpmcp_update_seen' );
+
+// --- v1.3.6: clicking the badge re-runs the mode check and the GitHub check ---
+$GLOBALS['current_uid'] = 1;
+update_option( MCP_Mode::OPTION, 'full' );
+check( 'mode re-check returns the stored mode', MCP_Mode::FULL === MCP_Mode::recheck() );
+delete_option( MCP_Mode::OPTION );
+check( 'mode re-check fails closed to Monitor', MCP_Mode::MONITOR === MCP_Mode::recheck() );
+
+// Badge href: update-capable admins get the nonce'd re-check link.
+$bar = new FakeAdminBar();
+MCP_Mode::admin_bar( $bar );
+check( 'badge click runs the re-check for update-capable admins', false !== strpos( (string) $bar->nodes['wpmcp-mode']['href'], 'wpmcp_recheck=1' ) && false !== strpos( (string) $bar->nodes['wpmcp-mode']['href'], '_wpnonce=' ) );
+
+// Admins without update_plugins get a plain link to Settings & Status.
+$GLOBALS['caps'][1]['update_plugins'] = false;
+$bar = new FakeAdminBar();
+MCP_Mode::admin_bar( $bar );
+check( 'badge click is a plain settings link without update rights', false === strpos( (string) $bar->nodes['wpmcp-mode']['href'], 'wpmcp_recheck' ) );
+$GLOBALS['caps'][1]['update_plugins'] = true;
+
+// The re-check action itself: fresh mode read plus a fresh GitHub check.
+$GLOBALS['mock_http'] = array(
+	'code' => 200,
+	'body' => json_encode(
+		array(
+			'tag_name' => 'v9.9.9',
+			'html_url' => 'https://github.com/uri-png/ai-site-manager-for-wordpress/releases/tag/v9.9.9',
+			'assets'   => array(
+				array(
+					'name'                 => 'ai-site-manager-9.9.9.zip',
+					'browser_download_url' => 'https://github.com/uri-png/ai-site-manager-for-wordpress/releases/download/v9.9.9/ai-site-manager-9.9.9.zip',
+				),
+			),
+		)
+	),
+);
+$GLOBALS['mock_http_calls'] = 0;
+delete_option( 'wpmcp_update_seen' );
+$_GET = array( 'page' => 'ai-site-manager', 'wpmcp_recheck' => '1', '_wpnonce' => 'test' );
+try {
+	MCP_Admin::handle_actions();
+	check( 'badge re-check redirects to the fresh result', false );
+} catch ( RedirectException $e ) {
+	check( 'badge re-check redirects to the fresh result', false !== strpos( $e->url, 'wpmcp_checked=1' ) && false !== strpos( $e->url, 'page=ai-site-manager' ) );
+}
+check( 'badge re-check ran the manual GitHub check once', 1 === $GLOBALS['mock_http_calls'] );
+$seen = get_option( 'wpmcp_update_seen' );
+check( 'badge re-check stored the new result for the badge', is_array( $seen ) && '9.9.9' === $seen['version'] );
+
+// Without update_plugins the click is refused and nothing is fetched.
+$GLOBALS['caps'][1]['update_plugins'] = false;
+$GLOBALS['mock_http_calls']           = 0;
+delete_option( 'wpmcp_update_seen' );
+try {
+	MCP_Admin::handle_actions();
+	check( 'badge re-check refuses admins without update rights', false );
+} catch ( RedirectException $e ) {
+	check( 'badge re-check refuses admins without update rights', false !== strpos( $e->url, 'wpmcp_error=' ) );
+}
+check( 'refused re-check makes no GitHub request', 0 === $GLOBALS['mock_http_calls'] && false === get_option( 'wpmcp_update_seen' ) );
+$GLOBALS['caps'][1]['update_plugins'] = true;
+
+// No click, no request: the settings screen alone never touches GitHub.
+$GLOBALS['mock_http_calls'] = 0;
+$_GET = array( 'page' => 'ai-site-manager' );
+MCP_Admin::handle_actions();
+check( 'no click means no GitHub request', 0 === $GLOBALS['mock_http_calls'] );
+$_GET                   = array();
+$GLOBALS['mock_http']   = null;
+$GLOBALS['current_uid'] = 0;
 
 echo $failures ? "\n{$failures} FAILURES\n" : "\nALL TESTS PASSED\n";
 exit( $failures ? 1 : 0 );

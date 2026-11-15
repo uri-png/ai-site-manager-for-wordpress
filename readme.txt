@@ -4,7 +4,7 @@ Tags: mcp, ai, json-rpc, api, automation
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 8.0
-Stable tag: 1.3.4
+Stable tag: 1.3.6
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -29,6 +29,12 @@ AI Site Manager turns a WordPress site into an MCP (Model Context Protocol) serv
 3. Connect your MCP client to https://yoursite/wp-json/wp-mcp/v1/mcp - either with an Authorization: Bearer <key> header or via the built-in OAuth flow.
 
 == Changelog ==
+
+= 1.3.6 (unreleased) =
+* New: clicking the admin-bar access-mode badge re-runs the mode check and the GitHub update check (nonce-protected, administrators with update rights only), then shows Settings & Status with the fresh result. Still nothing automatic - the checks run only because an administrator clicked.
+
+= 1.3.5 (unreleased) =
+* New: the admin-bar access-mode badge also shows the installed plugin version. When the last manual update check found a newer GitHub release, an orange "Update" marker appears next to the badge and hovering the badge offers "Update now" with a confirmation. The badge makes no network requests - it only reads the stored result of a manual check.
 
 = 1.3.4 =
 * New: "Check for updates" link on the Plugins screen row. After a manual check finds a newer GitHub release, the row offers "Update now" with a confirmation. Manual only.

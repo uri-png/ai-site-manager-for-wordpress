@@ -105,6 +105,25 @@ final class MCP_Updater {
 	}
 
 	/**
+	 * Result of the last manual check when it found a newer release, or null.
+	 * Reads only the stored option - never makes a network request - so it is
+	 * safe to call on every page load (admin bar, plugins screen). Entries
+	 * older than a week are ignored.
+	 *
+	 * @return array{version:string,url:string}|null
+	 */
+	public static function seen_newer(): ?array {
+		$seen = get_option( self::SEEN_OPTION );
+		if ( ! is_array( $seen ) || empty( $seen['version'] ) || ! version_compare( (string) $seen['version'], WPMCP_VERSION, '>' ) || time() - (int) ( $seen['time'] ?? 0 ) > 7 * DAY_IN_SECONDS ) {
+			return null;
+		}
+		return array(
+			'version' => (string) $seen['version'],
+			'url'     => isset( $seen['url'] ) ? (string) $seen['url'] : '',
+		);
+	}
+
+	/**
 	 * Install the latest release. $expected_version is the version the admin saw;
 	 * if GitHub has moved on since, nothing is installed.
 	 *
@@ -252,11 +271,11 @@ final class MCP_Updater {
 		if ( ! current_user_can( 'update_plugins' ) || ! current_user_can( 'manage_options' ) ) {
 			return;
 		}
-		$seen = get_option( self::SEEN_OPTION );
-		if ( ! is_array( $seen ) || empty( $seen['version'] ) || ! version_compare( (string) $seen['version'], WPMCP_VERSION, '>' ) || time() - (int) ( $seen['time'] ?? 0 ) > 7 * DAY_IN_SECONDS ) {
+		$seen = self::seen_newer();
+		if ( null === $seen ) {
 			return;
 		}
-		$version = (string) $seen['version'];
+		$version = $seen['version'];
 		$action  = MCP_Admin::tab_url( 'settings' );
 		echo '<tr class="plugin-update-tr active"><td colspan="4" class="plugin-update colspanchange"><div class="update-message notice inline notice-warning notice-alt"><p style="margin:0">';
 		echo sprintf(
@@ -367,6 +386,6 @@ final class MCP_Updater {
 		wp_nonce_field( 'wpmcp_check_update' );
 		submit_button( __( 'Check GitHub for updates', 'ai-site-manager' ), 'secondary', 'submit', false );
 		echo '</form>';
-		echo '<p class="description">' . esc_html__( 'Looks at the public releases of the project on GitHub and installs only the plugin ZIP attached to a release. Your keys, settings and logs are kept.', 'ai-site-manager' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'Looks at the public releases of the project on GitHub and installs only the plugin ZIP attached to a release. Your keys, settings and logs are kept. Clicking the access-mode badge in the admin bar runs the same check.', 'ai-site-manager' ) . '</p>';
 	}
 }

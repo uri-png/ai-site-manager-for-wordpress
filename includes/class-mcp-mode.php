@@ -154,6 +154,16 @@ final class MCP_Mode {
 	}
 
 	/**
+	 * Re-read the current mode on an administrator's explicit request
+	 * (admin-bar badge click). The mode is stored on this site and only an
+	 * administrator can change it, so this is a fresh confirmation read of
+	 * exactly what enforcement uses - never a network request.
+	 */
+	public static function recheck(): string {
+		return self::get();
+	}
+
+	/**
 	 * True when the current mode forbids running this tool.
 	 */
 	public static function blocks( MCP_Tool $tool ): bool {
@@ -277,7 +287,17 @@ final class MCP_Mode {
 
 	/**
 	 * Admin-bar badge, visible on every admin screen and on the front end
-	 * for administrators.
+	 * for administrators. Shows the access mode and the installed plugin
+	 * version. When the last manual update check found a newer GitHub
+	 * release, an orange "Update" marker appears next to the badge and a
+	 * hover child offers the same confirm-and-install link as Settings &
+	 * Status. Reads only the stored check result - no network request.
+	 *
+	 * Clicking the badge is itself a manual check: for an administrator
+	 * with the update_plugins capability it re-reads the mode and runs the
+	 * same GitHub check as "Check GitHub for updates", then shows the
+	 * fresh result on Settings & Status. For anyone else it simply opens
+	 * Settings & Status.
 	 *
 	 * @param WP_Admin_Bar $bar Admin bar.
 	 */
@@ -287,14 +307,53 @@ final class MCP_Mode {
 		}
 		$full  = self::is_full();
 		$color = $full ? '#b32d2e' : '#00a32a';
+		$title = '<span style="background:' . $color . ';color:#fff;padding:2px 8px;border-radius:3px;font-weight:600;">AI: '
+			. esc_html( $full ? __( 'Full access', 'ai-site-manager' ) : __( 'Monitor only', 'ai-site-manager' ) )
+			. ' &middot; v' . esc_html( WPMCP_VERSION ) . '</span>';
+
+		$seen        = MCP_Updater::seen_newer();
+		$show_update = null !== $seen && current_user_can( 'update_plugins' );
+		if ( $show_update ) {
+			$title .= ' <span style="background:#d98500;color:#fff;padding:2px 8px;border-radius:3px;font-weight:600;">'
+				. esc_html( sprintf( /* translators: %s: new version number. */ __( 'Update: %s', 'ai-site-manager' ), $seen['version'] ) )
+				. '</span>';
+		}
+
+		// A badge click is the administrator asking: re-check the mode and
+		// run the same manual GitHub check as the Settings & Status button.
+		// Only offered to administrators who may update plugins; anyone else
+		// just opens Settings & Status.
+		$href  = MCP_Admin::tab_url( 'settings' );
+		$hover = self::summary();
+		if ( current_user_can( 'update_plugins' ) ) {
+			$href  = wp_nonce_url( add_query_arg( 'wpmcp_recheck', '1', $href ), 'wpmcp_recheck' );
+			$hover .= ' ' . __( 'Click to re-check the mode and GitHub updates now.', 'ai-site-manager' );
+		}
+
 		$bar->add_node(
 			array(
 				'id'    => 'wpmcp-mode',
-				'title' => '<span style="background:' . $color . ';color:#fff;padding:2px 8px;border-radius:3px;font-weight:600;">AI: ' . esc_html( $full ? __( 'Full access', 'ai-site-manager' ) : __( 'Monitor only', 'ai-site-manager' ) ) . '</span>',
-				'href'  => MCP_Admin::tab_url( 'settings' ),
-				'meta'  => array( 'title' => self::summary() ),
+				'title' => $title,
+				'href'  => $href,
+				'meta'  => array( 'title' => $hover ),
 			)
 		);
+
+		if ( $show_update ) {
+			$link = wp_nonce_url( add_query_arg( 'wpmcp_install', rawurlencode( $seen['version'] ), MCP_Admin::tab_url( 'settings' ) ), 'wpmcp_install_update' );
+			$bar->add_node(
+				array(
+					'id'     => 'wpmcp-mode-update',
+					'parent' => 'wpmcp-mode',
+					'title'  => sprintf( /* translators: %s: new version number. */ __( 'Update now to %s', 'ai-site-manager' ), $seen['version'] ),
+					'href'   => $link,
+					'meta'   => array(
+						'onclick' => 'return confirm(\'' . esc_js( __( 'Install this version now? Back up the site first if it is a live site.', 'ai-site-manager' ) ) . '\');',
+						'title'   => __( 'Installs the plugin ZIP attached to the GitHub release, exactly like the update box in Settings & Status.', 'ai-site-manager' ),
+					),
+				)
+			);
+		}
 	}
 
 	/**

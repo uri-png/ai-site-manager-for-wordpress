@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.3.6 (unreleased)
+
+- New: clicking the admin-bar access-mode badge re-reads the mode and runs the same manual GitHub update check as "Check GitHub for updates" (nonce-protected, administrators with the update_plugins capability only), then shows Settings & Status with the fresh result. Anyone without update rights gets a plain link to Settings & Status. Still nothing automatic - the checks run only because an administrator clicked.
+
+## 1.3.5 (unreleased)
+
+- New: the admin-bar access-mode badge shows the installed plugin version ("AI: Full access · v1.3.5"). When the last manual update check found a newer GitHub release, an orange "Update: X" marker appears next to the badge and hovering it offers "Update now to X" with the same confirm-and-install link as Settings & Status. The badge reads only the stored result of a manual check - no network requests, nothing automatic.
+
 ## 1.3.4
 
 - New: the Plugins screen has a "Check for updates" link on the AI Site Manager row. After a manual check finds a newer GitHub release, the row shows an "Update now" button with the same confirmation. Still manual only: nothing is checked or installed in the background.

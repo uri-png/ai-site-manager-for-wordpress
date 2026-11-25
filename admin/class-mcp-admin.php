@@ -485,6 +485,7 @@ final class MCP_Admin {
 	 * ------------------------------------------------------------------- */
 
 	private static function render_settings(): void {
+		MCP_Switch::render_box();
 		MCP_Mode::render_chooser();
 		echo '<h3>' . esc_html__( 'Other settings', 'ai-site-manager' ) . '</h3>';
 		echo '<form method="post"><input type="hidden" name="wpmcp_action" value="save_settings" />';

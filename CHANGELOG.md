@@ -1,6 +1,10 @@
 # Changelog
 
-## 1.3.6 (unreleased)
+## 1.3.7
+
+- New: one-click move to FocusWeb MCP, the successor of this plugin on WordPress.org. Settings & Status (plus a notice on this plugin's pages, the Plugins screen and the Dashboard) offers "Install FocusWeb MCP and switch": it installs FocusWeb MCP from WordPress.org (only a package whose folder is focusweb-mcp and whose header says FocusWeb MCP), activates it, and only then deactivates AI Site Manager. FocusWeb MCP carries over API keys, OAuth clients and tokens, settings, the approval queue, the audit log and Elementor backups, and keeps answering /wp-json/wp-mcp/v1, so connected agents keep working. AI Site Manager's data is kept, so re-activating it is a way back. Nothing happens until an administrator clicks; until FocusWeb MCP is on WordPress.org the box only says it is not available yet. Multisite: manual steps only.
+
+## 1.3.6
 
 - New: clicking the admin-bar access-mode badge re-reads the mode and runs the same manual GitHub update check as "Check GitHub for updates" (nonce-protected, administrators with the update_plugins capability only), then shows Settings & Status with the fresh result. Anyone without update rights gets a plain link to Settings & Status. Still nothing automatic - the checks run only because an administrator clicked.
 

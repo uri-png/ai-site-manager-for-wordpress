@@ -4,7 +4,7 @@ Tags: mcp, ai, json-rpc, api, automation
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 8.0
-Stable tag: 1.3.6
+Stable tag: 1.3.7
 License: GPL-2.0-or-later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -30,7 +30,10 @@ AI Site Manager turns a WordPress site into an MCP (Model Context Protocol) serv
 
 == Changelog ==
 
-= 1.3.6 (unreleased) =
+= 1.3.7 =
+* New: one-click move to FocusWeb MCP, the successor of this plugin on WordPress.org. Settings & Status (and a notice on this plugin's pages, the Plugins screen and the Dashboard) offers "Install FocusWeb MCP and switch": it installs FocusWeb MCP from WordPress.org, activates it and then deactivates AI Site Manager. FocusWeb MCP carries over API keys, OAuth clients and tokens, settings, the approval queue, the audit log and Elementor backups, and keeps answering the old /wp-json/wp-mcp/v1 address, so connected agents keep working. AI Site Manager's data is kept, so you can go back by re-activating it. Nothing happens until an administrator clicks; the offer appears once FocusWeb MCP is on WordPress.org.
+
+= 1.3.6 =
 * New: clicking the admin-bar access-mode badge re-runs the mode check and the GitHub update check (nonce-protected, administrators with update rights only), then shows Settings & Status with the fresh result. Still nothing automatic - the checks run only because an administrator clicked.
 
 = 1.3.5 (unreleased) =

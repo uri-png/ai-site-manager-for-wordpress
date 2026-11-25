@@ -40,6 +40,7 @@ final class MCP_Plugin {
 		}
 		if ( is_admin() ) {
 			MCP_Admin::init();
+			MCP_Switch::init();
 		}
 	}
 
